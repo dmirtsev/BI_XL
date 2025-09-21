@@ -1,0 +1,151 @@
+"""
+Callbacks для Dash-приложения.
+Здесь определяется интерактивная логика дашборда.
+"""
+from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
+import plotly.express as px
+import plotly.graph_objects as go
+from .queries import get_sales_by_day, get_unique_products, get_sales_by_product
+
+def register_callbacks(app):
+    """
+    Регистрирует все callbacks для Dash-приложения.
+    """
+    # Callback для обновления графика на первой вкладке (Общая динамика)
+    @app.callback(
+        Output('sales-by-day-chart', 'figure'),
+        [Input('start-date-picker-general', 'date'),
+         Input('end-date-picker-general', 'date')]
+    )
+    def update_general_sales_chart(start_date, end_date):
+        df = get_sales_by_day(start_date, end_date)
+        if df.empty:
+            return _create_empty_figure("Нет данных за выбранный период")
+            
+        fig = px.line(
+            df, x='date', y='total_sales', title='Динамика дохода по дням',
+            labels={'date': 'Дата', 'total_sales': 'Сумма дохода'}
+        )
+        fig.update_layout(margin=dict(l=40, r=40, t=40, b=40))
+        return fig
+
+    # Callback для загрузки списка продуктов во второй вкладке
+    @app.callback(
+        Output('product-dropdown', 'options'),
+        Input('tabs-main', 'value')
+    )
+    def update_product_dropdown(tab):
+        if tab == 'tab-product':
+            products = get_unique_products()
+            return [{'label': i, 'value': i} for i in products]
+        raise PreventUpdate
+
+    # Callback для обновления графика и таблицы на второй вкладке (Отчет по продуктам)
+    @app.callback(
+        [Output('sales-by-product-chart', 'figure'),
+         Output('product-sales-table', 'data'),
+         Output('product-sales-table', 'columns')],
+        [Input('product-dropdown', 'value'),
+         Input('start-date-picker-product', 'date'),
+         Input('end-date-picker-product', 'date')],
+        [State('festival-income-input', 'value')]
+    )
+    def update_product_sales_chart(product_names, start_date, end_date, festival_income):
+        empty_table_data = []
+        empty_table_columns = []
+
+        if not product_names:
+            return _create_empty_figure("Пожалуйста, выберите продукт(ы)"), empty_table_data, empty_table_columns
+
+        df = get_sales_by_product(product_names, start_date, end_date)
+        
+        if df.empty:
+            return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_table_data, empty_table_columns
+
+        # Округляем числовые значения до 2 знаков после запятой
+        df['daily_sales'] = df['daily_sales'].round(2)
+        df['cumulative_sales'] = df['cumulative_sales'].round(2)
+
+        # Расчет процентов от дохода фестиваля
+        if festival_income and festival_income > 0:
+            df['cumulative_percentage'] = ((df['cumulative_sales'] / festival_income) * 100).round(2).astype(str) + '%'
+            df['daily_percentage'] = ((df['daily_sales'] / festival_income) * 100).round(2).astype(str) + '%'
+        else:
+            df['cumulative_percentage'] = 'N/A'
+            df['daily_percentage'] = 'N/A'
+
+        # Подготовка данных для таблицы
+        table_columns = [
+            {"name": "Дата", "id": "date"},
+            {"name": "Дневной доход", "id": "daily_sales"},
+            {"name": "Накопительный доход", "id": "cumulative_sales"},
+            {"name": "% от прихода (накоп.)", "id": "cumulative_percentage"},
+            {"name": "% от прихода (дневн.)", "id": "daily_percentage"}
+        ]
+        table_data = df.to_dict('records')
+
+        # Создаем фигуру с двумя осями Y
+        fig = go.Figure()
+
+        # Добавляем столбчатую диаграмму для дневного дохода (основная ось Y)
+        fig.add_trace(go.Bar(
+            x=df['date'],
+            y=df['daily_sales'],
+            name='Дневной доход',
+            marker_color='blue'
+        ))
+
+        # Добавляем линейный график для накопительного дохода (вторичная ось Y)
+        fig.add_trace(go.Scatter(
+            x=df['date'],
+            y=df['cumulative_sales'],
+            name='Накопительный доход',
+            yaxis='y2',
+            mode='lines+markers',
+            line=dict(color='red')
+        ))
+
+        # Настраиваем layout
+        title_text = "Динамика дохода по выбранным продуктам"
+        if len(product_names) == 1:
+            title_text = f'Динамика дохода по продукту: {product_names[0]}'
+        elif len(product_names) > 1:
+            title_text = f'Динамика дохода по продуктам: {", ".join(product_names)}'
+
+        fig.update_layout(
+            title=title_text,
+            xaxis_title='Дата',
+            yaxis=dict(
+                title='Дневной доход',
+                titlefont=dict(color='blue'),
+                tickfont=dict(color='blue')
+            ),
+            yaxis2=dict(
+                title='Накопительный доход',
+                titlefont=dict(color='red'),
+                tickfont=dict(color='red'),
+                overlaying='y',
+                side='right'
+            ),
+            legend=dict(x=0.1, y=1.1, orientation='h'),
+            margin=dict(l=60, r=60, t=60, b=60)
+        )
+        
+        return fig, table_data, table_columns
+
+def _create_empty_figure(text):
+    """Создает пустую фигуру с текстовым сообщением."""
+    return {
+        "layout": {
+            "xaxis": {"visible": False},
+            "yaxis": {"visible": False},
+            "annotations": [{
+                "text": text,
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {"size": 16}
+            }]
+        }
+    }
