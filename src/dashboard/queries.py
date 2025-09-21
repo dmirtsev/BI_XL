@@ -31,6 +31,29 @@ def get_sales_by_day(start_date, end_date, category_id=None):
     finally:
         db.close()
 
+def get_category_revenue_by_period(start_date, end_date):
+    """
+    Возвращает доход по каждой категории продуктов за указанный период.
+    """
+    db = SessionLocal()
+    try:
+        query = db.query(
+            ProductCategory.name.label('category_name'),
+            func.sum(Order.income).label('total_revenue')
+        ).select_from(Order)\
+         .join(Product, Order.content == Product.name)\
+         .join(product_category_association, Product.id == product_category_association.c.product_id)\
+         .join(ProductCategory, ProductCategory.id == product_category_association.c.category_id)\
+         .filter(Order.creation_date.between(start_date, end_date))\
+         .filter(Order.income > 0)\
+         .group_by(ProductCategory.name)\
+         .order_by(func.sum(Order.income).desc())
+
+        df = pd.read_sql(query.statement, db.bind)
+        return df
+    finally:
+        db.close()
+
 def get_product_summary(product_names, start_date, end_date, category_id=None):
     """
     Возвращает сводную информацию по продуктам.

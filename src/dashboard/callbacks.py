@@ -9,7 +9,11 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from .queries import get_sales_by_day, get_unique_products, get_sales_by_product, get_product_summary, get_paid_products_summary, get_categories
+from .queries import (
+    get_sales_by_day, get_unique_products, get_sales_by_product, 
+    get_product_summary, get_paid_products_summary, get_categories,
+    get_category_revenue_by_period
+)
 
 def register_callbacks(app):
     """
@@ -281,6 +285,62 @@ def register_callbacks(app):
         table_data.append(total_row)
 
         return table_data, table_columns
+
+    # Callback для обновления вкладки "Анализ дохода по категориям"
+    @app.callback(
+        [Output('category-revenue-bar-chart', 'figure'),
+         Output('category-revenue-pie-chart', 'figure'),
+         Output('category-revenue-table', 'data'),
+         Output('category-revenue-table', 'columns')],
+        [Input('category-revenue-date-picker', 'start_date'),
+         Input('category-revenue-date-picker', 'end_date')]
+    )
+    def update_category_revenue_tab(start_date, end_date):
+        if not start_date or not end_date:
+            raise PreventUpdate
+
+        # Корректируем конечную дату
+        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
+
+        df = get_category_revenue_by_period(start_date, end_date_corrected)
+
+        empty_figure = _create_empty_figure("Нет данных за выбранный период")
+        
+        if df.empty:
+            return empty_figure, empty_figure, [], []
+
+        # 1. Столбчатый график
+        bar_fig = px.bar(
+            df, 
+            x='category_name', 
+            y='total_revenue',
+            title='Доход по категориям',
+            labels={'category_name': 'Категория', 'total_revenue': 'Суммарный доход'},
+            text='total_revenue'
+        )
+        bar_fig.update_traces(texttemplate='%{text:.2s}', textposition='outside')
+        bar_fig.update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
+
+        # 2. Круговой график
+        pie_fig = px.pie(
+            df, 
+            names='category_name', 
+            values='total_revenue',
+            title='Доля категорий в общем доходе',
+            hole=.3
+        )
+        pie_fig.update_traces(textposition='inside', textinfo='percent+label')
+
+        # 3. Таблица
+        df['total_revenue'] = df['total_revenue'].round(2)
+        table_data = df.to_dict('records')
+        table_columns = [
+            {"name": "Категория", "id": "category_name"},
+            {"name": "Доход", "id": "total_revenue"},
+        ]
+
+        return bar_fig, pie_fig, table_data, table_columns
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""

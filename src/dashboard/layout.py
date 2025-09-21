@@ -165,5 +165,49 @@ layout = html.Div([
                 ],
             )
         ]),
+        
+        # Вкладка 4: Анализ дохода по категориям
+        dcc.Tab(label='Анализ дохода по категориям', value='tab-category-revenue', children=[
+            html.Div([
+                html.Label("Выберите период:"),
+                dcc.DatePickerRange(
+                    id='category-revenue-date-picker',
+                    min_date_allowed=date(2020, 1, 1),
+                    max_date_allowed=date.today(),
+                    start_date=date.today() - timedelta(days=30),
+                    end_date=date.today(),
+                    display_format='YYYY-MM-DD'
+                ),
+            ], style={'marginTop': '20px', 'marginBottom': '20px'}),
+            
+            html.Div([
+                # Контейнер для графиков
+                html.Div([
+                    dcc.Graph(id='category-revenue-bar-chart'),
+                ], style={'width': '50%', 'display': 'inline-block'}),
+                
+                html.Div([
+                    dcc.Graph(id='category-revenue-pie-chart'),
+                ], style={'width': '50%', 'display': 'inline-block'}),
+            ]),
+            
+            html.H4("Таблица доходов по категориям"),
+            dash_table.DataTable(
+                id='category-revenue-table',
+                sort_action="native",
+                filter_action="native",
+                style_cell={'textAlign': 'left'},
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }
+                ],
+            )
+        ]),
     ]),
 ])
