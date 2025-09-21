@@ -86,11 +86,17 @@ def register_callbacks(app):
             df['cumulative_percentage'] = 'N/A'
             df['daily_percentage'] = 'N/A'
 
+        # Расчет дневной конверсии
+        df['daily_conversion'] = '0.00%'
+        mask = df['total_orders'] > 0
+        df.loc[mask, 'daily_conversion'] = ((df.loc[mask, 'paid_orders'] / df.loc[mask, 'total_orders']) * 100).round(2).astype(str) + '%'
+
         # Подготовка данных для таблицы
         table_columns = [
             {"name": "Дата", "id": "date"},
             {"name": "Заявки", "id": "total_orders"},
             {"name": "Оплаты", "id": "paid_orders"},
+            {"name": "Конверсия", "id": "daily_conversion"},
             {"name": "Дневной доход", "id": "daily_sales"},
             {"name": "Накопительный доход", "id": "cumulative_sales"},
             {"name": "% от прихода (накоп.)", "id": "cumulative_percentage"},
