@@ -6,7 +6,10 @@ from datetime import date, timedelta
 
 # Определяем layout приложения
 layout = html.Div([
-    html.H1("Аналитический дашборд"),
+    html.Div([
+        html.H1("Аналитический дашборд", style={'display': 'inline-block', 'marginRight': '20px'}),
+        html.A(html.Button("Вернуться на главный экран"), href='/', style={'display': 'inline-block', 'verticalAlign': 'top', 'marginTop': '20px'}),
+    ]),
     
     dcc.Tabs(id="tabs-main", value='tab-general', children=[
         # Вкладка 1: Общая динамика

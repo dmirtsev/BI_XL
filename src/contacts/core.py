@@ -44,6 +44,22 @@ def import_contacts_from_excel(file_path: str):
     except Exception as e:
         return {"status": "error", "message": f"Ошибка чтения файла: {e}"}
 
+    # --- Проверка на полное соответствие колонок ---
+    expected_columns = set(COLUMN_MAPPING.keys())
+    actual_columns = set(df.columns)
+
+    if expected_columns != actual_columns:
+        missing_columns = expected_columns - actual_columns
+        extra_columns = actual_columns - expected_columns
+        
+        error_message = "Структура файла контактов не соответствует ожидаемой. "
+        if missing_columns:
+            error_message += f"Отсутствуют колонки: {', '.join(missing_columns)}. "
+        if extra_columns:
+            error_message += f"Найдены лишние колонки: {', '.join(extra_columns)}."
+            
+        return {"status": "error", "message": error_message}
+
     df = df.rename(columns=COLUMN_MAPPING)
 
     date_columns = ['creation_date', 'birthday', 'last_online', 'last_activity']

@@ -53,6 +53,22 @@ def import_orders_from_excel(file_path: str):
         print(f"Ошибка чтения файла: {e}")
         return {"status": "error", "message": str(e)}
 
+    # --- Проверка на полное соответствие колонок ---
+    expected_columns = set(COLUMN_MAPPING.keys())
+    actual_columns = set(df.columns)
+
+    if expected_columns != actual_columns:
+        missing_columns = expected_columns - actual_columns
+        extra_columns = actual_columns - expected_columns
+        
+        error_message = "Структура файла не соответствует ожидаемой. "
+        if missing_columns:
+            error_message += f"Отсутствуют колонки: {', '.join(missing_columns)}. "
+        if extra_columns:
+            error_message += f"Найдены лишние колонки: {', '.join(extra_columns)}."
+            
+        return {"status": "error", "message": error_message}
+
     # Переименовываем столбцы для соответствия модели
     df = df.rename(columns=COLUMN_MAPPING)
 
@@ -80,16 +96,19 @@ def import_orders_from_excel(file_path: str):
             existing_order = db.query(Order).filter(Order.id == order_id).first()
             
             order_data = row.to_dict()
+            
+            # Убираем ключи, которых нет в модели, чтобы избежать ошибок
+            valid_keys = [c.name for c in Order.__table__.columns]
+            filtered_data = {k: v for k, v in order_data.items() if k in valid_keys}
 
             if existing_order:
                 # Обновляем существующий заказ
-                for key, value in order_data.items():
-                    if hasattr(existing_order, key):
-                        setattr(existing_order, key, value)
+                for key, value in filtered_data.items():
+                    setattr(existing_order, key, value)
                 updated_count += 1
             else:
                 # Создаем новый заказ
-                new_order = Order(**order_data)
+                new_order = Order(**filtered_data)
                 db.add(new_order)
                 created_count += 1
         

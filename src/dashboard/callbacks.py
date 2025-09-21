@@ -2,6 +2,7 @@
 Callbacks для Dash-приложения.
 Здесь определяется интерактивная логика дашборда.
 """
+from datetime import datetime, timedelta
 from dash import html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
@@ -21,7 +22,14 @@ def register_callbacks(app):
          Input('end-date-picker-general', 'date')]
     )
     def update_general_sales_chart(start_date, end_date):
-        df = get_sales_by_day(start_date, end_date)
+        if not start_date or not end_date:
+            raise PreventUpdate
+        
+        # Корректируем конечную дату, чтобы включить весь день
+        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
+
+        df = get_sales_by_day(start_date, end_date_corrected)
         if df.empty:
             return _create_empty_figure("Нет данных за выбранный период")
             
@@ -57,6 +65,13 @@ def register_callbacks(app):
         [State('festival-income-input', 'value')]
     )
     def update_product_sales_chart(product_names, start_date, end_date, festival_income):
+        if not all([product_names, start_date, end_date]):
+            raise PreventUpdate
+
+        # Корректируем конечную дату
+        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
+
         empty_figure = _create_empty_figure("Пожалуйста, выберите продукт(ы)")
         empty_data = []
         empty_columns = []
@@ -66,10 +81,10 @@ def register_callbacks(app):
             return empty_figure, empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
 
         # Данные для графика и первой таблицы
-        df = get_sales_by_product(product_names, start_date, end_date)
+        df = get_sales_by_product(product_names, start_date, end_date_corrected)
         
         # Данные для сводной таблицы
-        summary_df = get_product_summary(product_names, start_date, end_date)
+        summary_df = get_product_summary(product_names, start_date, end_date_corrected)
 
         if df.empty:
             return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
@@ -207,7 +222,11 @@ def register_callbacks(app):
         if not start_date or not end_date:
             raise PreventUpdate
 
-        df = get_paid_products_summary(start_date, end_date)
+        # Корректируем конечную дату
+        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
+
+        df = get_paid_products_summary(start_date, end_date_corrected)
 
         # Подготовка колонок для таблицы
         table_columns = [

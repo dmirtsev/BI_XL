@@ -33,6 +33,7 @@ class Order(Base):
     number = Column(String)
     contact_name = Column(String)
     contact_surname = Column(String)
+    recipient_last_name = Column(String) # Фамилия получателя
     contact_email = Column(String)
     responsible_person = Column(String)
     content = Column(Text)
