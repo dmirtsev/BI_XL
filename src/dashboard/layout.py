@@ -110,5 +110,45 @@ layout = html.Div([
                 ],
             )
         ]),
+        
+        # Вкладка 3: Период и продажи
+        dcc.Tab(label='Период и продажи', value='tab-period-sales', children=[
+            html.Div([
+                html.Label("Выберите период:"),
+                dcc.DatePickerRange(
+                    id='period-sales-date-picker',
+                    min_date_allowed=date(2020, 1, 1),
+                    max_date_allowed=date.today(),
+                    start_date=date.today() - timedelta(days=30),
+                    end_date=date.today(),
+                    display_format='YYYY-MM-DD'
+                ),
+            ], style={'marginTop': '20px', 'marginBottom': '20px'}),
+            
+            html.Div(id='period-sales-summary-div', style={
+                'marginTop': '20px',
+                'padding': '10px',
+                'border': '1px solid #ddd',
+                'borderRadius': '5px',
+                'backgroundColor': '#f9f9f9',
+                'marginBottom': '20px'
+            }),
+            
+            html.H4("Продукты с оплатой за период"),
+            dash_table.DataTable(
+                id='period-sales-table',
+                style_cell={'textAlign': 'left'},
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }
+                ],
+            )
+        ]),
     ]),
 ])

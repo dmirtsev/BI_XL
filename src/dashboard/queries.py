@@ -103,3 +103,28 @@ def get_sales_by_product(product_names, start_date, end_date):
         return df
     finally:
         db.close()
+
+def get_paid_products_summary(start_date, end_date):
+    """
+    Возвращает сводку по продуктам, у которых были оплаты за период.
+    """
+    db = SessionLocal()
+    try:
+        paid_orders_case = case((Order.income > 0, 1), else_=0)
+        
+        query = (
+            db.query(
+                Order.content.label('product'),
+                func.count(Order.id).label('total_orders'),
+                func.sum(paid_orders_case).label('paid_orders')
+            )
+            .filter(Order.creation_date.between(start_date, end_date))
+            .group_by(Order.content)
+            .having(func.sum(paid_orders_case) > 0)
+            .order_by(Order.content)
+        )
+        
+        df = pd.read_sql(query.statement, db.bind)
+        return df
+    finally:
+        db.close()

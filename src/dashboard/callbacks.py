@@ -8,7 +8,7 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from .queries import get_sales_by_day, get_unique_products, get_sales_by_product, get_product_summary
+from .queries import get_sales_by_day, get_unique_products, get_sales_by_product, get_product_summary, get_paid_products_summary
 
 def register_callbacks(app):
     """
@@ -195,6 +195,46 @@ def register_callbacks(app):
             ]
 
         return fig, table_data, table_columns, summary_table_data, summary_table_columns, conversion_text
+
+    # Callback для обновления отчета "Период и продажи"
+    @app.callback(
+        [Output('period-sales-table', 'data'),
+         Output('period-sales-table', 'columns'),
+         Output('period-sales-summary-div', 'children')],
+        [Input('period-sales-date-picker', 'start_date'),
+         Input('period-sales-date-picker', 'end_date')]
+    )
+    def update_period_sales_report(start_date, end_date):
+        if not start_date or not end_date:
+            raise PreventUpdate
+
+        df = get_paid_products_summary(start_date, end_date)
+
+        if df.empty:
+            summary_text = "Нет данных за выбранный период."
+            return [], [], [html.P(summary_text)]
+
+        # Подготовка данных для таблицы
+        table_columns = [
+            {"name": "Продукт", "id": "product"},
+            {"name": "Заявки", "id": "total_orders"},
+            {"name": "Оплаты", "id": "paid_orders"},
+        ]
+        table_data = df.to_dict('records')
+
+        # Расчет сводных данных
+        total_products = len(df)
+        total_orders = df['total_orders'].sum()
+        total_paid_orders = df['paid_orders'].sum()
+
+        summary_text = [
+            html.B("Сводка за период: "),
+            f"Всего продано продуктов: {total_products}, ",
+            f"Всего заявок: {total_orders}, ",
+            f"Всего оплат: {total_paid_orders}"
+        ]
+
+        return table_data, table_columns, summary_text
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""
