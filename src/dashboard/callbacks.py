@@ -2,6 +2,7 @@
 Callbacks для Dash-приложения.
 Здесь определяется интерактивная логика дашборда.
 """
+from dash import html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import pandas as pd
@@ -48,7 +49,8 @@ def register_callbacks(app):
          Output('product-sales-table', 'data'),
          Output('product-sales-table', 'columns'),
          Output('product-summary-table', 'data'),
-         Output('product-summary-table', 'columns')],
+         Output('product-summary-table', 'columns'),
+         Output('conversion-summary-div', 'children')],
         [Input('product-dropdown', 'value'),
          Input('start-date-picker-product', 'date'),
          Input('end-date-picker-product', 'date')],
@@ -58,9 +60,10 @@ def register_callbacks(app):
         empty_figure = _create_empty_figure("Пожалуйста, выберите продукт(ы)")
         empty_data = []
         empty_columns = []
+        empty_conversion_text = ""
 
         if not product_names:
-            return empty_figure, empty_data, empty_columns, empty_data, empty_columns
+            return empty_figure, empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
 
         # Данные для графика и первой таблицы
         df = get_sales_by_product(product_names, start_date, end_date)
@@ -69,7 +72,7 @@ def register_callbacks(app):
         summary_df = get_product_summary(product_names, start_date, end_date)
 
         if df.empty:
-            return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_data, empty_columns, empty_data, empty_columns
+            return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
 
         # Округляем числовые значения до 2 знаков после запятой
         df['daily_sales'] = df['daily_sales'].round(2)
@@ -139,16 +142,26 @@ def register_callbacks(app):
             legend=dict(x=0.1, y=1.1, orientation='h'),
             margin=dict(l=60, r=60, t=60, b=60)
         )
-        # Логика для сводной таблицы
+        # Логика для сводной таблицы и конверсии
         if summary_df.empty:
             summary_table_data = []
             summary_table_columns = []
+            conversion_text = ""
         else:
             # Расчет итоговой строки
             total_orders = summary_df['total_orders'].sum()
             paid_orders = summary_df['paid_orders'].sum()
             total_income = summary_df['total_income'].sum()
             overall_avg_check = (total_income / paid_orders) if paid_orders > 0 else 0
+
+            # Расчет конверсии
+            conversion_rate = (paid_orders / total_orders * 100) if total_orders > 0 else 0
+            conversion_text = [
+                html.B("Конверсия заявок в оплату: "),
+                f"Всего заявок: {total_orders}, ",
+                f"Всего оплаченных заявок: {paid_orders}, ",
+                f"Конверсия: {conversion_rate:.2f}%"
+            ]
 
             # Форматирование
             summary_df['total_income'] = summary_df['total_income'].round(2)
@@ -173,7 +186,7 @@ def register_callbacks(app):
                 {"name": "Средний чек", "id": "average_check"},
             ]
 
-        return fig, table_data, table_columns, summary_table_data, summary_table_columns
+        return fig, table_data, table_columns, summary_table_data, summary_table_columns, conversion_text
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""

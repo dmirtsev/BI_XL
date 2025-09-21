@@ -87,7 +87,14 @@ layout = html.Div([
                     }
                 ],
             ),
-            html.H4("Сводка по продуктам", style={'marginTop': '40px'}),
+            html.Div(id='conversion-summary-div', style={
+                'marginTop': '20px',
+                'padding': '10px',
+                'border': '1px solid #ddd',
+                'borderRadius': '5px',
+                'backgroundColor': '#f9f9f9'
+            }),
+            html.H4("Сводка по продуктам", style={'marginTop': '20px'}),
             dash_table.DataTable(
                 id='product-summary-table',
                 style_cell={'textAlign': 'left'},
