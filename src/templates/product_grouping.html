@@ -31,6 +31,8 @@
             <h2>Продукты</h2>
             <input type="text" id="product-filter" onkeyup="filterProducts()" placeholder="Фильтр по названию..." style="margin-bottom: 10px;">
             <button onclick="syncProducts()">Синхронизировать продукты из заказов</button>
+            <button onclick="filterUncategorized()" style="margin-left: 10px;">Показать без категорий</button>
+            <button onclick="resetFilters()" style="margin-left: 5px;">Сбросить</button>
             <ul id="products-list"></ul>
         </div>
 
@@ -57,7 +59,8 @@
 
     <script>
         const API_PREFIX = '/api/product-grouping';
-
+        let activeFilter = 'all'; // 'all', 'text', 'uncategorized'
+        
         // --- Загрузка данных при старте ---
         document.addEventListener('DOMContentLoaded', () => {
             loadProducts();
@@ -97,8 +100,8 @@
                         `;
                         list.appendChild(item);
                     });
-                    // Повторно применяем фильтр после загрузки
-                    filterProducts();
+                    // Повторно применяем активный фильтр после загрузки
+                    applyFilters();
                 });
         }
 
@@ -112,15 +115,45 @@
         }
 
         function filterProducts() {
-            const filter = document.getElementById('product-filter').value.toLowerCase();
+            activeFilter = 'text';
+            applyFilters();
+        }
+
+        function filterUncategorized() {
+            activeFilter = 'uncategorized';
+            applyFilters();
+        }
+
+        function resetFilters() {
+            activeFilter = 'all';
+            document.getElementById('product-filter').value = '';
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const textFilter = document.getElementById('product-filter').value.toLowerCase();
             const products = document.querySelectorAll('#products-list li');
+
             products.forEach(li => {
                 const productName = li.querySelector('span').textContent.toLowerCase();
-                if (productName.includes(filter)) {
-                    li.style.display = '';
-                } else {
-                    li.style.display = 'none';
+                const categorySpan = li.querySelector('.product-categories');
+                const isUncategorized = categorySpan && categorySpan.textContent === 'Без категории';
+
+                let show = false;
+                if (activeFilter === 'all') {
+                    show = true;
+                } else if (activeFilter === 'text') {
+                    show = productName.includes(textFilter);
+                } else if (activeFilter === 'uncategorized') {
+                    show = isUncategorized;
                 }
+                
+                // Дополнительно проверяем текстовый фильтр, если он не пустой
+                if (textFilter && !productName.includes(textFilter)) {
+                    show = false;
+                }
+
+                li.style.display = show ? '' : 'none';
             });
         }
 
@@ -176,13 +209,12 @@
             const modalList = document.getElementById('modal-categories-list');
             modalList.innerHTML = 'Загрузка...';
 
-            // Получаем все категории и текущие категории продукта
+            // Получаем все категории и детали конкретного продукта
             Promise.all([
                 fetch(`${API_PREFIX}/categories`).then(res => res.json()),
-                fetch(`${API_PREFIX}/products`).then(res => res.json())
-            ]).then(([allCategories, allProducts]) => {
-                const product = allProducts.find(p => p.id === productId);
-                const assignedCategoryNames = product ? product.categories : [];
+                fetch(`${API_PREFIX}/products/${productId}`).then(res => res.json())
+            ]).then(([allCategories, productDetails]) => {
+                const assignedCategoryNames = productDetails.categories || [];
                 
                 modalList.innerHTML = '';
                 allCategories.forEach(cat => {

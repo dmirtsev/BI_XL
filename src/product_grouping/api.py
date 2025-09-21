@@ -26,6 +26,24 @@ def get_products():
     finally:
         db.close()
 
+@product_grouping_api.route('/products/<int:product_id>', methods=['GET'])
+def get_product_details(product_id):
+    """Возвращает детали одного продукта, включая его категории."""
+    db: Session = SessionLocal()
+    try:
+        product = db.query(Product).filter(Product.id == product_id).first()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+        
+        result = {
+            "id": product.id,
+            "name": product.name,
+            "categories": [c.name for c in product.categories]
+        }
+        return jsonify(result)
+    finally:
+        db.close()
+
 @product_grouping_api.route('/categories', methods=['GET', 'POST'])
 def handle_categories():
     """Создает новую категорию или возвращает список всех категорий."""
