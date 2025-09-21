@@ -1,10 +1,10 @@
 from flask import Flask, jsonify, render_template, render_template_string
-from .auth.api import auth_api
-from .analytics.api import analytics_api
-from .contacts.api import contacts_api
-from .product_grouping.api import product_grouping_api
-from .analytics.models import init_db
-from .dashboard.app import create_dash_app
+from src.auth.api import auth_api
+from src.analytics.api import analytics_api
+from src.contacts.api import contacts_api
+from src.product_grouping.api import product_grouping_api
+from src.analytics.models import init_db
+from src.dashboard.app import create_dash_app
 
 app = Flask(__name__)
 
@@ -167,6 +167,5 @@ def product_grouping_page():
     return render_template('product_grouping.html')
 
 if __name__ == '__main__':
-    # Запускаем приложение в режиме отладки для удобства разработки.
-    # Указываем порт 5002, чтобы избежать конфликтов.
-    app.run(debug=True, port=5002)
+    # Запускаем приложение. host='0.0.0.0' делает его доступным извне контейнера.
+    app.run(host='0.0.0.0', port=8050, debug=True)

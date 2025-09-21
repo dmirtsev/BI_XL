@@ -169,15 +169,25 @@ layout = html.Div([
         # Вкладка 4: Анализ дохода по категориям
         dcc.Tab(label='Анализ дохода по категориям', value='tab-category-revenue', children=[
             html.Div([
-                html.Label("Выберите период:"),
-                dcc.DatePickerRange(
-                    id='category-revenue-date-picker',
-                    min_date_allowed=date(2020, 1, 1),
-                    max_date_allowed=date.today(),
-                    start_date=date.today() - timedelta(days=30),
-                    end_date=date.today(),
-                    display_format='YYYY-MM-DD'
-                ),
+                html.Div([
+                    html.Label("Выберите период:"),
+                    dcc.DatePickerRange(
+                        id='category-revenue-date-picker',
+                        min_date_allowed=date(2020, 1, 1),
+                        max_date_allowed=date.today(),
+                        start_date=date.today() - timedelta(days=30),
+                        end_date=date.today(),
+                        display_format='YYYY-MM-DD'
+                    ),
+                ], style={'display': 'inline-block', 'marginRight': '20px'}),
+                html.Div([
+                    html.Label("Исключить категории:"),
+                    dcc.Dropdown(
+                        id='exclude-category-dropdown',
+                        multi=True,
+                        placeholder="Выберите категории для исключения"
+                    ),
+                ], style={'display': 'inline-block', 'width': '50%'}),
             ], style={'marginTop': '20px', 'marginBottom': '20px'}),
             
             html.Div([

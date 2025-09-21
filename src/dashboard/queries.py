@@ -31,9 +31,10 @@ def get_sales_by_day(start_date, end_date, category_id=None):
     finally:
         db.close()
 
-def get_category_revenue_by_period(start_date, end_date):
+def get_category_revenue_by_period(start_date, end_date, excluded_category_ids=None):
     """
-    Возвращает доход по каждой категории продуктов за указанный период.
+    Возвращает доход по каждой категории продуктов за указанный период,
+    исключая категории из списка excluded_category_ids.
     """
     db = SessionLocal()
     try:
@@ -45,9 +46,13 @@ def get_category_revenue_by_period(start_date, end_date):
          .join(product_category_association, Product.id == product_category_association.c.product_id)\
          .join(ProductCategory, ProductCategory.id == product_category_association.c.category_id)\
          .filter(Order.creation_date.between(start_date, end_date))\
-         .filter(Order.income > 0)\
-         .group_by(ProductCategory.name)\
-         .order_by(func.sum(Order.income).desc())
+         .filter(Order.income > 0)
+
+        if excluded_category_ids:
+            query = query.filter(ProductCategory.id.notin_(excluded_category_ids))
+
+        query = query.group_by(ProductCategory.name)\
+                     .order_by(func.sum(Order.income).desc())
 
         df = pd.read_sql(query.statement, db.bind)
         return df

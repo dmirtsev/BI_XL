@@ -49,12 +49,13 @@ def register_callbacks(app):
     @app.callback(
         [Output('category-dropdown-general', 'options'),
          Output('category-dropdown-product', 'options'),
-         Output('category-dropdown-period', 'options')],
+         Output('category-dropdown-period', 'options'),
+         Output('exclude-category-dropdown', 'options')],
         [Input('tabs-main', 'value')] # Триггер при загрузке любой вкладки
     )
     def update_category_dropdowns(tab):
         categories = get_categories()
-        return [categories, categories, categories]
+        return [categories, categories, categories, categories]
 
     # Callback для обновления списка продуктов в зависимости от выбранной категории
     @app.callback(
@@ -293,9 +294,10 @@ def register_callbacks(app):
          Output('category-revenue-table', 'data'),
          Output('category-revenue-table', 'columns')],
         [Input('category-revenue-date-picker', 'start_date'),
-         Input('category-revenue-date-picker', 'end_date')]
+         Input('category-revenue-date-picker', 'end_date'),
+         Input('exclude-category-dropdown', 'value')]
     )
-    def update_category_revenue_tab(start_date, end_date):
+    def update_category_revenue_tab(start_date, end_date, excluded_categories):
         if not start_date or not end_date:
             raise PreventUpdate
 
@@ -303,7 +305,7 @@ def register_callbacks(app):
         end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
         end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
 
-        df = get_category_revenue_by_period(start_date, end_date_corrected)
+        df = get_category_revenue_by_period(start_date, end_date_corrected, excluded_categories)
 
         empty_figure = _create_empty_figure("Нет данных за выбранный период")
         
