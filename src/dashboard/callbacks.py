@@ -199,8 +199,7 @@ def register_callbacks(app):
     # Callback для обновления отчета "Период и продажи"
     @app.callback(
         [Output('period-sales-table', 'data'),
-         Output('period-sales-table', 'columns'),
-         Output('period-sales-summary-div', 'children')],
+         Output('period-sales-table', 'columns')],
         [Input('period-sales-date-picker', 'start_date'),
          Input('period-sales-date-picker', 'end_date')]
     )
@@ -220,7 +219,7 @@ def register_callbacks(app):
         ]
 
         if df.empty:
-            return [], table_columns, []
+            return [], table_columns
 
         # Расчет конверсии для каждой строки
         df['conversion'] = '0.00%'
@@ -250,8 +249,7 @@ def register_callbacks(app):
         table_data = df.to_dict('records')
         table_data.append(total_row)
 
-        # Возвращаем данные, колонки и пустой список для summary_div
-        return table_data, table_columns, []
+        return table_data, table_columns
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""
