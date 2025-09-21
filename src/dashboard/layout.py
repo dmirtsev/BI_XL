@@ -129,15 +129,6 @@ layout = html.Div([
                 ),
             ], style={'marginTop': '20px', 'marginBottom': '20px'}),
             
-            html.Div(id='period-sales-summary-div', style={
-                'marginTop': '20px',
-                'padding': '10px',
-                'border': '1px solid #ddd',
-                'borderRadius': '5px',
-                'backgroundColor': '#f9f9f9',
-                'marginBottom': '20px'
-            }),
-            
             html.H4("Продукты с оплатой за период"),
             dash_table.DataTable(
                 id='period-sales-table',

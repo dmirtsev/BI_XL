@@ -210,19 +210,7 @@ def register_callbacks(app):
 
         df = get_paid_products_summary(start_date, end_date)
 
-        if df.empty:
-            summary_text = "Нет данных за выбранный период."
-            return [], [], [html.P(summary_text)]
-
-        # Расчет конверсии
-        df['conversion'] = '0.00%'
-        mask = df['total_orders'] > 0
-        df.loc[mask, 'conversion'] = ((df.loc[mask, 'paid_orders'] / df.loc[mask, 'total_orders']) * 100).round(2).astype(str) + '%'
-        
-        # Округление дохода
-        df['total_income'] = df['total_income'].round(2)
-
-        # Подготовка данных для таблицы
+        # Подготовка колонок для таблицы
         table_columns = [
             {"name": "Продукт", "id": "product"},
             {"name": "Заявки", "id": "total_orders"},
@@ -230,23 +218,40 @@ def register_callbacks(app):
             {"name": "Конверсия", "id": "conversion"},
             {"name": "Доход", "id": "total_income"},
         ]
-        table_data = df.to_dict('records')
 
-        # Расчет сводных данных
-        total_products = len(df)
+        if df.empty:
+            return [], table_columns, []
+
+        # Расчет конверсии для каждой строки
+        df['conversion'] = '0.00%'
+        mask = df['total_orders'] > 0
+        df.loc[mask, 'conversion'] = ((df.loc[mask, 'paid_orders'] / df.loc[mask, 'total_orders']) * 100).round(2).astype(str) + '%'
+        
+        # Округление дохода
+        df['total_income'] = df['total_income'].round(2)
+
+        # Расчет итоговой строки
         total_orders = df['total_orders'].sum()
         total_paid_orders = df['paid_orders'].sum()
         total_income = df['total_income'].sum()
+        
+        # Расчет общей конверсии
+        overall_conversion_rate = (total_paid_orders / total_orders * 100) if total_orders > 0 else 0
+        overall_conversion_str = f"{overall_conversion_rate:.2f}%"
 
-        summary_text = [
-            html.B("Сводка за период: "),
-            f"Всего продано продуктов: {total_products}, ",
-            f"Всего заявок: {total_orders}, ",
-            f"Всего оплат: {total_paid_orders}, ",
-            f"Общий доход: {total_income:,.2f} руб."
-        ]
+        total_row = {
+            'product': 'Итого',
+            'total_orders': total_orders,
+            'paid_orders': total_paid_orders,
+            'conversion': overall_conversion_str,
+            'total_income': round(total_income, 2)
+        }
+        
+        table_data = df.to_dict('records')
+        table_data.append(total_row)
 
-        return table_data, table_columns, summary_text
+        # Возвращаем данные, колонки и пустой список для summary_div
+        return table_data, table_columns, []
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""
