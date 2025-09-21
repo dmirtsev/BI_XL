@@ -86,6 +86,21 @@ layout = html.Div([
                         'backgroundColor': 'rgb(248, 248, 248)'
                     }
                 ],
+            ),
+            html.H4("Сводка по продуктам", style={'marginTop': '40px'}),
+            dash_table.DataTable(
+                id='product-summary-table',
+                style_cell={'textAlign': 'left'},
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }
+                ],
             )
         ]),
     ]),

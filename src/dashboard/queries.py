@@ -2,7 +2,7 @@
 Функции для выполнения SQL-запросов к базе данных для дашборда.
 """
 import pandas as pd
-from sqlalchemy import func
+from sqlalchemy import func, case
 from src.analytics.models import SessionLocal, Order
 
 def get_sales_by_day(start_date, end_date):
@@ -20,6 +20,34 @@ def get_sales_by_day(start_date, end_date):
             .group_by(func.date(Order.creation_date))
             .order_by(func.date(Order.creation_date))
         )
+        df = pd.read_sql(query.statement, db.bind)
+        return df
+    finally:
+        db.close()
+
+def get_product_summary(product_names, start_date, end_date):
+    """
+    Возвращает сводную информацию по продуктам: количество заявок,
+    количество оплат, общий доход и средний чек.
+    """
+    db = SessionLocal()
+    try:
+        paid_orders_case = case((Order.income > 0, 1), else_=0)
+        
+        query = (
+            db.query(
+                Order.content.label('product'),
+                func.count(Order.id).label('total_orders'),
+                func.sum(paid_orders_case).label('paid_orders'),
+                func.sum(Order.income).label('total_income'),
+                func.avg(case((Order.income > 0, Order.income))).label('average_check')
+            )
+            .filter(Order.content.in_(product_names))
+            .filter(Order.creation_date.between(start_date, end_date))
+            .group_by(Order.content)
+            .order_by(Order.content)
+        )
+        
         df = pd.read_sql(query.statement, db.bind)
         return df
     finally:

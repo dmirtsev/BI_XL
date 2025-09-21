@@ -4,9 +4,10 @@ Callbacks для Dash-приложения.
 """
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from .queries import get_sales_by_day, get_unique_products, get_sales_by_product
+from .queries import get_sales_by_day, get_unique_products, get_sales_by_product, get_product_summary
 
 def register_callbacks(app):
     """
@@ -45,23 +46,30 @@ def register_callbacks(app):
     @app.callback(
         [Output('sales-by-product-chart', 'figure'),
          Output('product-sales-table', 'data'),
-         Output('product-sales-table', 'columns')],
+         Output('product-sales-table', 'columns'),
+         Output('product-summary-table', 'data'),
+         Output('product-summary-table', 'columns')],
         [Input('product-dropdown', 'value'),
          Input('start-date-picker-product', 'date'),
          Input('end-date-picker-product', 'date')],
         [State('festival-income-input', 'value')]
     )
     def update_product_sales_chart(product_names, start_date, end_date, festival_income):
-        empty_table_data = []
-        empty_table_columns = []
+        empty_figure = _create_empty_figure("Пожалуйста, выберите продукт(ы)")
+        empty_data = []
+        empty_columns = []
 
         if not product_names:
-            return _create_empty_figure("Пожалуйста, выберите продукт(ы)"), empty_table_data, empty_table_columns
+            return empty_figure, empty_data, empty_columns, empty_data, empty_columns
 
+        # Данные для графика и первой таблицы
         df = get_sales_by_product(product_names, start_date, end_date)
         
+        # Данные для сводной таблицы
+        summary_df = get_product_summary(product_names, start_date, end_date)
+
         if df.empty:
-            return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_table_data, empty_table_columns
+            return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_data, empty_columns, empty_data, empty_columns
 
         # Округляем числовые значения до 2 знаков после запятой
         df['daily_sales'] = df['daily_sales'].round(2)
@@ -131,8 +139,41 @@ def register_callbacks(app):
             legend=dict(x=0.1, y=1.1, orientation='h'),
             margin=dict(l=60, r=60, t=60, b=60)
         )
-        
-        return fig, table_data, table_columns
+        # Логика для сводной таблицы
+        if summary_df.empty:
+            summary_table_data = []
+            summary_table_columns = []
+        else:
+            # Расчет итоговой строки
+            total_orders = summary_df['total_orders'].sum()
+            paid_orders = summary_df['paid_orders'].sum()
+            total_income = summary_df['total_income'].sum()
+            overall_avg_check = (total_income / paid_orders) if paid_orders > 0 else 0
+
+            # Форматирование
+            summary_df['total_income'] = summary_df['total_income'].round(2)
+            summary_df['average_check'] = summary_df['average_check'].fillna(0).round(2)
+
+            total_row = {
+                'product': 'Итого',
+                'total_orders': total_orders,
+                'paid_orders': paid_orders,
+                'total_income': round(total_income, 2),
+                'average_check': round(overall_avg_check, 2)
+            }
+            
+            summary_table_data = summary_df.to_dict('records')
+            summary_table_data.append(total_row)
+
+            summary_table_columns = [
+                {"name": "Продукт", "id": "product"},
+                {"name": "Заявки", "id": "total_orders"},
+                {"name": "Оплаты", "id": "paid_orders"},
+                {"name": "Доход", "id": "total_income"},
+                {"name": "Средний чек", "id": "average_check"},
+            ]
+
+        return fig, table_data, table_columns, summary_table_data, summary_table_columns
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""
