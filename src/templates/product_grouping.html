@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление Группами Продуктов</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; color: #343a40; }
+        .container { max-width: 1200px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background-color: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        h1, h2 { color: #007bff; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: #0056b3; }
+        button.delete { background-color: #dc3545; }
+        button.delete:hover { background-color: #c82333; }
+        input[type="text"] { padding: 8px; border-radius: 5px; border: 1px solid #ced4da; width: calc(100% - 18px); }
+        ul { list-style-type: none; padding: 0; }
+        li { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        li:last-child { border-bottom: none; }
+        .product-categories { font-size: 0.9em; color: #6c757d; }
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1>Управление Группами Продуктов</h1>
+
+    <div class="container">
+        <div class="panel">
+            <h2>Продукты</h2>
+            <input type="text" id="product-filter" onkeyup="filterProducts()" placeholder="Фильтр по названию..." style="margin-bottom: 10px;">
+            <button onclick="syncProducts()">Синхронизировать продукты из заказов</button>
+            <ul id="products-list"></ul>
+        </div>
+
+        <div class="panel">
+            <h2>Категории</h2>
+            <div>
+                <input type="text" id="new-category-name" placeholder="Название новой категории">
+                <button onclick="createCategory()">Создать</button>
+            </div>
+            <ul id="categories-list"></ul>
+        </div>
+    </div>
+
+    <!-- Модальное окно для назначения категорий -->
+    <div id="category-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Назначить категории для <span id="modal-product-name"></span></h2>
+            <input type="hidden" id="modal-product-id">
+            <div id="modal-categories-list"></div>
+            <button onclick="saveProductCategories()">Сохранить</button>
+        </div>
+    </div>
+
+    <script>
+        const API_PREFIX = '/api/product-grouping';
+
+        // --- Загрузка данных при старте ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProducts();
+            loadCategories();
+
+            // Единый обработчик кликов для всего списка продуктов (делегирование событий)
+            document.getElementById('products-list').addEventListener('click', function(event) {
+                if (event.target && event.target.classList.contains('edit-btn')) {
+                    const listItem = event.target.closest('li');
+                    const productId = listItem.dataset.productId;
+                    const productName = listItem.dataset.productName;
+                    openCategoryModal(productId, productName);
+                }
+            });
+        });
+
+        // --- Функции для работы с Продуктами ---
+        function loadProducts() {
+            fetch(`${API_PREFIX}/products`)
+                .then(response => response.json())
+                .then(products => {
+                    const list = document.getElementById('products-list');
+                    list.innerHTML = '';
+                    products.forEach(p => {
+                        const item = document.createElement('li');
+                        // Сохраняем данные в data-атрибутах для безопасного доступа
+                        item.dataset.productId = p.id;
+                        item.dataset.productName = p.name;
+                        
+                        item.innerHTML = `
+                            <span>${p.name}</span>
+                            <div>
+                                <span class="product-categories">${p.categories.join(', ') || 'Без категории'}</span>
+                                <!-- Используем класс для идентификации кнопки, а не inline-onclick -->
+                                <button class="edit-btn">Изменить</button>
+                            </div>
+                        `;
+                        list.appendChild(item);
+                    });
+                    // Повторно применяем фильтр после загрузки
+                    filterProducts();
+                });
+        }
+
+        function syncProducts() {
+            fetch(`${API_PREFIX}/products/sync`, { method: 'POST' })
+                .then(response => response.json())
+                .then(result => {
+                    alert(`Синхронизация завершена. Добавлено новых продуктов: ${result.added}`);
+                    loadProducts();
+                });
+        }
+
+        function filterProducts() {
+            const filter = document.getElementById('product-filter').value.toLowerCase();
+            const products = document.querySelectorAll('#products-list li');
+            products.forEach(li => {
+                const productName = li.querySelector('span').textContent.toLowerCase();
+                if (productName.includes(filter)) {
+                    li.style.display = '';
+                } else {
+                    li.style.display = 'none';
+                }
+            });
+        }
+
+        // --- Функции для работы с Категориями ---
+        function loadCategories() {
+            fetch(`${API_PREFIX}/categories`)
+                .then(response => response.json())
+                .then(categories => {
+                    const list = document.getElementById('categories-list');
+                    list.innerHTML = '';
+                    categories.forEach(c => {
+                        const item = document.createElement('li');
+                        item.innerHTML = `
+                            <span>${c.name}</span>
+                            <button class="delete" onclick="deleteCategory(${c.id})">Удалить</button>
+                        `;
+                        list.appendChild(item);
+                    });
+                });
+        }
+
+        function createCategory() {
+            const name = document.getElementById('new-category-name').value;
+            if (!name) {
+                alert('Введите название категории.');
+                return;
+            }
+            fetch(`${API_PREFIX}/categories`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            }).then(() => {
+                document.getElementById('new-category-name').value = '';
+                loadCategories();
+                loadProducts(); // Обновляем продукты, т.к. могли измениться категории
+            });
+        }
+
+        function deleteCategory(categoryId) {
+            if (!confirm('Вы уверены, что хотите удалить эту категорию?')) return;
+            fetch(`${API_PREFIX}/categories/${categoryId}`, { method: 'DELETE' })
+                .then(() => {
+                    loadCategories();
+                    loadProducts(); // Обновляем продукты
+                });
+        }
+
+        // --- Функции для Модального окна ---
+        function openCategoryModal(productId, productName) {
+            document.getElementById('modal-product-id').value = productId;
+            document.getElementById('modal-product-name').textContent = productName;
+
+            const modalList = document.getElementById('modal-categories-list');
+            modalList.innerHTML = 'Загрузка...';
+
+            // Получаем все категории и текущие категории продукта
+            Promise.all([
+                fetch(`${API_PREFIX}/categories`).then(res => res.json()),
+                fetch(`${API_PREFIX}/products`).then(res => res.json())
+            ]).then(([allCategories, allProducts]) => {
+                const product = allProducts.find(p => p.id === productId);
+                const assignedCategoryNames = product ? product.categories : [];
+                
+                modalList.innerHTML = '';
+                allCategories.forEach(cat => {
+                    const isChecked = assignedCategoryNames.includes(cat.name);
+                    modalList.innerHTML += `
+                        <div>
+                            <input type="checkbox" id="cat-${cat.id}" value="${cat.id}" ${isChecked ? 'checked' : ''}>
+                            <label for="cat-${cat.id}">${cat.name}</label>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('category-modal').style.display = 'block';
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('category-modal').style.display = 'none';
+        }
+
+        function saveProductCategories() {
+            const productId = document.getElementById('modal-product-id').value;
+            const selectedCategoryIds = Array.from(document.querySelectorAll('#modal-categories-list input:checked')).map(input => input.value);
+
+            fetch(`${API_PREFIX}/products/${productId}/assign-categories`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category_ids: selectedCategoryIds })
+            }).then(() => {
+                closeModal();
+                loadProducts();
+            });
+        }
+
+        // Закрытие модального окна по клику вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('category-modal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+
+</body>
+</html>

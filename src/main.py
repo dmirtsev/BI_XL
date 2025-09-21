@@ -1,7 +1,8 @@
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template, render_template_string
 from .auth.api import auth_api
 from .analytics.api import analytics_api
 from .contacts.api import contacts_api
+from .product_grouping.api import product_grouping_api
 from .analytics.models import init_db
 from .dashboard.app import create_dash_app
 
@@ -21,6 +22,7 @@ dash_app = create_dash_app(app)
 app.register_blueprint(auth_api, url_prefix='/api/auth')
 app.register_blueprint(analytics_api, url_prefix='/api/analytics')
 app.register_blueprint(contacts_api, url_prefix='/api/contacts')
+app.register_blueprint(product_grouping_api, url_prefix='/api/product-grouping')
 
 
 # --- Основной интерфейс ---
@@ -86,6 +88,13 @@ def index():
                 <a href="/dashboard/" target="_blank"><button>Открыть дашборд</button></a>
             </div>
 
+            <!-- Модуль Группировки Продуктов -->
+            <div class="module">
+                <h2>Модуль: Группировка Продуктов</h2>
+                <p>Перейдите на страницу для управления категориями продуктов.</p>
+                <a href="/product-grouping" target="_blank"><button>Управление категориями</button></a>
+            </div>
+
             <div class="result-container">
                 <h3>Результат вызова API:</h3>
                 <pre id="result">Здесь будет отображен результат...</pre>
@@ -149,6 +158,13 @@ def index():
     </html>
     """
     return render_template_string(html_template)
+
+@app.route('/product-grouping')
+def product_grouping_page():
+    """
+    Отображает страницу для управления категориями продуктов.
+    """
+    return render_template('product_grouping.html')
 
 if __name__ == '__main__':
     # Запускаем приложение в режиме отладки для удобства разработки.

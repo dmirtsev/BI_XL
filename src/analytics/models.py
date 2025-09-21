@@ -18,6 +18,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Базовый класс для всех моделей
 Base = declarative_base()
 
+# Импортируем новые модели, чтобы Alembic их "увидел"
+from src.product_grouping.models import Product, ProductCategory
+
 
 # --- Модель данных для Заказов ---
 class Order(Base):

@@ -32,6 +32,10 @@ layout = html.Div([
                     date=date.today(),
                     display_format='YYYY-MM-DD'
                 ),
+                html.Div([
+                    html.Label("Выберите категорию:"),
+                    dcc.Dropdown(id='category-dropdown-general', placeholder="Все категории", clearable=True),
+                ], style={'width': '30%', 'display': 'inline-block', 'marginLeft': '20px'}),
             ], style={'marginTop': '20px', 'marginBottom': '20px'}),
             dcc.Graph(id='sales-by-day-chart')
         ]),
@@ -40,9 +44,14 @@ layout = html.Div([
         dcc.Tab(label='Отчет по продуктам', value='tab-product', children=[
             html.Div([
                 html.Div([
-                    html.Label("Выберите продукт(ы):"),
-                    dcc.Dropdown(id='product-dropdown', placeholder="Загрузка...", multi=True),
+                    html.Label("Выберите категорию:"),
+                    dcc.Dropdown(id='category-dropdown-product', placeholder="Все категории", clearable=True),
                 ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
+
+                html.Div([
+                    html.Label("Выберите продукт(ы):"),
+                    dcc.Dropdown(id='product-dropdown', placeholder="Выберите категорию...", multi=True),
+                ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top', 'marginLeft': '2%'}),
 
                 html.Div([
                     html.Label("Приход от одного из предыдущих фестивалей (по умолчанию от Infinitum 10)"),
@@ -72,8 +81,8 @@ layout = html.Div([
                         date=date.today(),
                         display_format='YYYY-MM-DD'
                     ),
-                ], style={'width': '35%', 'display': 'inline-block', 'float': 'right', 'verticalAlign': 'top'}),
-            ], style={'marginTop': '20px', 'marginBottom': '20px'}),
+                ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
+            ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'flex-start', 'flexWrap': 'wrap', 'marginTop': '20px', 'marginBottom': '20px'}),
             dcc.Graph(id='sales-by-product-chart'),
             html.H4("Данные по доходам"),
             dash_table.DataTable(
@@ -121,15 +130,21 @@ layout = html.Div([
         # Вкладка 3: Период и продажи
         dcc.Tab(label='Период и продажи', value='tab-period-sales', children=[
             html.Div([
-                html.Label("Выберите период:"),
-                dcc.DatePickerRange(
-                    id='period-sales-date-picker',
-                    min_date_allowed=date(2020, 1, 1),
-                    max_date_allowed=date.today(),
-                    start_date=date.today() - timedelta(days=30),
-                    end_date=date.today(),
-                    display_format='YYYY-MM-DD'
-                ),
+                html.Div([
+                    html.Label("Выберите категорию:"),
+                    dcc.Dropdown(id='category-dropdown-period', placeholder="Все категории", clearable=True),
+                ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
+                html.Div([
+                    html.Label("Выберите период:"),
+                    dcc.DatePickerRange(
+                        id='period-sales-date-picker',
+                        min_date_allowed=date(2020, 1, 1),
+                        max_date_allowed=date.today(),
+                        start_date=date.today() - timedelta(days=30),
+                        end_date=date.today(),
+                        display_format='YYYY-MM-DD'
+                    ),
+                ], style={'display': 'inline-block', 'marginLeft': '20px'}),
             ], style={'marginTop': '20px', 'marginBottom': '20px'}),
             
             html.H4("Продукты с оплатой за период"),

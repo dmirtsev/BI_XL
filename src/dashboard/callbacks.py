@@ -9,7 +9,7 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from .queries import get_sales_by_day, get_unique_products, get_sales_by_product, get_product_summary, get_paid_products_summary
+from .queries import get_sales_by_day, get_unique_products, get_sales_by_product, get_product_summary, get_paid_products_summary, get_categories
 
 def register_callbacks(app):
     """
@@ -19,9 +19,10 @@ def register_callbacks(app):
     @app.callback(
         Output('sales-by-day-chart', 'figure'),
         [Input('start-date-picker-general', 'date'),
-         Input('end-date-picker-general', 'date')]
+         Input('end-date-picker-general', 'date'),
+         Input('category-dropdown-general', 'value')]
     )
-    def update_general_sales_chart(start_date, end_date):
+    def update_general_sales_chart(start_date, end_date, category_id):
         if not start_date or not end_date:
             raise PreventUpdate
         
@@ -29,7 +30,7 @@ def register_callbacks(app):
         end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
         end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
 
-        df = get_sales_by_day(start_date, end_date_corrected)
+        df = get_sales_by_day(start_date, end_date_corrected, category_id)
         if df.empty:
             return _create_empty_figure("Нет данных за выбранный период")
             
@@ -40,16 +41,25 @@ def register_callbacks(app):
         fig.update_layout(margin=dict(l=40, r=40, t=40, b=40))
         return fig
 
-    # Callback для загрузки списка продуктов во второй вкладке
+    # Callback для загрузки списка категорий во все дропдауны
+    @app.callback(
+        [Output('category-dropdown-general', 'options'),
+         Output('category-dropdown-product', 'options'),
+         Output('category-dropdown-period', 'options')],
+        [Input('tabs-main', 'value')] # Триггер при загрузке любой вкладки
+    )
+    def update_category_dropdowns(tab):
+        categories = get_categories()
+        return [categories, categories, categories]
+
+    # Callback для обновления списка продуктов в зависимости от выбранной категории
     @app.callback(
         Output('product-dropdown', 'options'),
-        Input('tabs-main', 'value')
+        [Input('category-dropdown-product', 'value')]
     )
-    def update_product_dropdown(tab):
-        if tab == 'tab-product':
-            products = get_unique_products()
-            return [{'label': i, 'value': i} for i in products]
-        raise PreventUpdate
+    def update_product_dropdown(category_id):
+        products = get_unique_products(category_id)
+        return [{'label': i, 'value': i} for i in products]
 
     # Callback для обновления графика и таблицы на второй вкладке (Отчет по продуктам)
     @app.callback(
@@ -61,11 +71,12 @@ def register_callbacks(app):
          Output('conversion-summary-div', 'children')],
         [Input('product-dropdown', 'value'),
          Input('start-date-picker-product', 'date'),
-         Input('end-date-picker-product', 'date')],
+         Input('end-date-picker-product', 'date'),
+         Input('category-dropdown-product', 'value')],
         [State('festival-income-input', 'value')]
     )
-    def update_product_sales_chart(product_names, start_date, end_date, festival_income):
-        if not all([product_names, start_date, end_date]):
+    def update_product_sales_chart(product_names, start_date, end_date, category_id, festival_income):
+        if not all([start_date, end_date]):
             raise PreventUpdate
 
         # Корректируем конечную дату
@@ -77,14 +88,14 @@ def register_callbacks(app):
         empty_columns = []
         empty_conversion_text = ""
 
-        if not product_names:
+        if not product_names and not category_id:
             return empty_figure, empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
 
         # Данные для графика и первой таблицы
-        df = get_sales_by_product(product_names, start_date, end_date_corrected)
+        df = get_sales_by_product(product_names, start_date, end_date_corrected, category_id)
         
         # Данные для сводной таблицы
-        summary_df = get_product_summary(product_names, start_date, end_date_corrected)
+        summary_df = get_product_summary(product_names, start_date, end_date_corrected, category_id)
 
         if df.empty:
             return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
@@ -216,9 +227,10 @@ def register_callbacks(app):
         [Output('period-sales-table', 'data'),
          Output('period-sales-table', 'columns')],
         [Input('period-sales-date-picker', 'start_date'),
-         Input('period-sales-date-picker', 'end_date')]
+         Input('period-sales-date-picker', 'end_date'),
+         Input('category-dropdown-period', 'value')]
     )
-    def update_period_sales_report(start_date, end_date):
+    def update_period_sales_report(start_date, end_date, category_id):
         if not start_date or not end_date:
             raise PreventUpdate
 
@@ -226,7 +238,7 @@ def register_callbacks(app):
         end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
         end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
 
-        df = get_paid_products_summary(start_date, end_date_corrected)
+        df = get_paid_products_summary(start_date, end_date_corrected, category_id)
 
         # Подготовка колонок для таблицы
         table_columns = [
