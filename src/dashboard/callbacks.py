@@ -214,11 +214,21 @@ def register_callbacks(app):
             summary_text = "Нет данных за выбранный период."
             return [], [], [html.P(summary_text)]
 
+        # Расчет конверсии
+        df['conversion'] = '0.00%'
+        mask = df['total_orders'] > 0
+        df.loc[mask, 'conversion'] = ((df.loc[mask, 'paid_orders'] / df.loc[mask, 'total_orders']) * 100).round(2).astype(str) + '%'
+        
+        # Округление дохода
+        df['total_income'] = df['total_income'].round(2)
+
         # Подготовка данных для таблицы
         table_columns = [
             {"name": "Продукт", "id": "product"},
             {"name": "Заявки", "id": "total_orders"},
             {"name": "Оплаты", "id": "paid_orders"},
+            {"name": "Конверсия", "id": "conversion"},
+            {"name": "Доход", "id": "total_income"},
         ]
         table_data = df.to_dict('records')
 
@@ -226,12 +236,14 @@ def register_callbacks(app):
         total_products = len(df)
         total_orders = df['total_orders'].sum()
         total_paid_orders = df['paid_orders'].sum()
+        total_income = df['total_income'].sum()
 
         summary_text = [
             html.B("Сводка за период: "),
             f"Всего продано продуктов: {total_products}, ",
             f"Всего заявок: {total_orders}, ",
-            f"Всего оплат: {total_paid_orders}"
+            f"Всего оплат: {total_paid_orders}, ",
+            f"Общий доход: {total_income:,.2f} руб."
         ]
 
         return table_data, table_columns, summary_text

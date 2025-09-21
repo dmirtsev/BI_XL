@@ -116,7 +116,8 @@ def get_paid_products_summary(start_date, end_date):
             db.query(
                 Order.content.label('product'),
                 func.count(Order.id).label('total_orders'),
-                func.sum(paid_orders_case).label('paid_orders')
+                func.sum(paid_orders_case).label('paid_orders'),
+                func.sum(Order.income).label('total_income')
             )
             .filter(Order.creation_date.between(start_date, end_date))
             .group_by(Order.content)

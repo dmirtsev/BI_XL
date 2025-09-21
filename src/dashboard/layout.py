@@ -75,6 +75,8 @@ layout = html.Div([
             html.H4("Данные по доходам"),
             dash_table.DataTable(
                 id='product-sales-table',
+                sort_action="native",
+                filter_action="native",
                 style_cell={'textAlign': 'left'},
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
@@ -97,6 +99,8 @@ layout = html.Div([
             html.H4("Сводка по продуктам", style={'marginTop': '20px'}),
             dash_table.DataTable(
                 id='product-summary-table',
+                sort_action="native",
+                filter_action="native",
                 style_cell={'textAlign': 'left'},
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
@@ -137,6 +141,8 @@ layout = html.Div([
             html.H4("Продукты с оплатой за период"),
             dash_table.DataTable(
                 id='period-sales-table',
+                sort_action="native",
+                filter_action="native",
                 style_cell={'textAlign': 'left'},
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
