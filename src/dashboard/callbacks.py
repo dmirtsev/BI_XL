@@ -89,6 +89,8 @@ def register_callbacks(app):
         # Подготовка данных для таблицы
         table_columns = [
             {"name": "Дата", "id": "date"},
+            {"name": "Заявки", "id": "total_orders"},
+            {"name": "Оплаты", "id": "paid_orders"},
             {"name": "Дневной доход", "id": "daily_sales"},
             {"name": "Накопительный доход", "id": "cumulative_sales"},
             {"name": "% от прихода (накоп.)", "id": "cumulative_percentage"},

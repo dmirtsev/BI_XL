@@ -72,11 +72,13 @@ def get_sales_by_product(product_names, start_date, end_date):
     """
     db = SessionLocal()
     try:
-        # Подзапрос для агрегации дохода по дням для конкретных продуктов
-        daily_sales_subquery = (
+        # Подзапрос для агрегации данных по дням для конкретных продуктов
+        daily_agg_subquery = (
             db.query(
                 func.date(Order.creation_date).label('date'),
-                func.sum(Order.income).label('daily_sales')
+                func.sum(Order.income).label('daily_sales'),
+                func.count(Order.id).label('total_orders'),
+                func.sum(case((Order.income > 0, 1), else_=0)).label('paid_orders')
             )
             .filter(Order.content.in_(product_names))
             .filter(Order.creation_date.between(start_date, end_date))
@@ -86,13 +88,15 @@ def get_sales_by_product(product_names, start_date, end_date):
         # Основной запрос с использованием оконной функции для расчета накопительной суммы
         query = (
             db.query(
-                daily_sales_subquery.c.date,
-                daily_sales_subquery.c.daily_sales,
-                func.sum(daily_sales_subquery.c.daily_sales).over(
-                    order_by=daily_sales_subquery.c.date
+                daily_agg_subquery.c.date,
+                daily_agg_subquery.c.daily_sales,
+                daily_agg_subquery.c.total_orders,
+                daily_agg_subquery.c.paid_orders,
+                func.sum(daily_agg_subquery.c.daily_sales).over(
+                    order_by=daily_agg_subquery.c.date
                 ).label('cumulative_sales')
             )
-            .order_by(daily_sales_subquery.c.date)
+            .order_by(daily_agg_subquery.c.date)
         )
         
         df = pd.read_sql(query.statement, db.bind)
