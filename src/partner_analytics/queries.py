@@ -20,7 +20,7 @@ def get_partner_analytics_data(db: Session, start_date: str, end_date: str, excl
         LEFT JOIN
             contacts c ON o.utm_source = c.id
         WHERE
-            o.creation_date BETWEEN :start_date AND :end_date
+            DATE(o.creation_date) >= :start_date AND DATE(o.creation_date) <= :end_date
     """
     
     # Динамически добавляем условие для исключения "Общего источника"

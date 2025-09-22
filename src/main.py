@@ -1,10 +1,12 @@
 from flask import Flask, jsonify, render_template, render_template_string
+from sqlalchemy import func
 from src.auth.api import auth_api
 from src.analytics.api import analytics_api
 from src.contacts.api import contacts_api
 from src.product_grouping.api import product_grouping_api
 from src.partner_analytics.api import partner_analytics_api
-from src.analytics.models import init_db
+from src.analytics.models import init_db, SessionLocal, Order
+from src.contacts.models import Contact
 from src.dashboard.app import create_dash_app
 
 app = Flask(__name__)
@@ -33,6 +35,13 @@ def index():
     """
     Главная страница, которая отображает меню с доступом к модулям.
     """
+    db = SessionLocal()
+    try:
+        max_order_date = db.query(func.max(Order.creation_date)).scalar()
+        max_contact_date = db.query(func.max(Contact.creation_date)).scalar()
+    finally:
+        db.close()
+
     html_template = """
     <!DOCTYPE html>
     <html lang="ru">
@@ -56,6 +65,11 @@ def index():
         <div class="container">
             <h1>Главное меню</h1>
             
+            <div class="stats-container" style="background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p><strong>Макс. дата создания заказа:</strong> {{ max_order_date.strftime('%Y-%m-%d %H:%M:%S') if max_order_date else 'Нет данных' }}</p>
+                <p><strong>Макс. дата создания контакта:</strong> {{ max_contact_date.strftime('%Y-%m-%d %H:%M:%S') if max_contact_date else 'Нет данных' }}</p>
+            </div>
+
             <!-- Модуль Аутентификации -->
             <div class="module">
                 <h2>Модуль: Аутентификация</h2>
@@ -159,7 +173,11 @@ def index():
     </body>
     </html>
     """
-    return render_template_string(html_template)
+    return render_template_string(
+        html_template,
+        max_order_date=max_order_date,
+        max_contact_date=max_contact_date
+    )
 
 @app.route('/product-grouping')
 def product_grouping_page():
