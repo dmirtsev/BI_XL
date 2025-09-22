@@ -3,6 +3,7 @@ from src.auth.api import auth_api
 from src.analytics.api import analytics_api
 from src.contacts.api import contacts_api
 from src.product_grouping.api import product_grouping_api
+from src.partner_analytics.api import partner_analytics_api
 from src.analytics.models import init_db
 from src.dashboard.app import create_dash_app
 
@@ -23,6 +24,7 @@ app.register_blueprint(auth_api, url_prefix='/api/auth')
 app.register_blueprint(analytics_api, url_prefix='/api/analytics')
 app.register_blueprint(contacts_api, url_prefix='/api/contacts')
 app.register_blueprint(product_grouping_api, url_prefix='/api/product-grouping')
+app.register_blueprint(partner_analytics_api, url_prefix='/api/partner-analytics')
 
 
 # --- Основной интерфейс ---
@@ -167,5 +169,6 @@ def product_grouping_page():
     return render_template('product_grouping.html')
 
 if __name__ == '__main__':
-    # Запускаем приложение. host='0.0.0.0' делает его доступным извне контейнера.
-    app.run(host='0.0.0.0', port=8050, debug=True)
+    # Запускаем приложение в режиме отладки для удобства разработки.
+    # Указываем порт 5002, чтобы избежать конфликтов.
+    app.run(debug=True, port=5002)

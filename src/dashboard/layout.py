@@ -89,7 +89,8 @@ layout = html.Div([
                 id='product-sales-table',
                 sort_action="native",
                 filter_action="native",
-                style_cell={'textAlign': 'left'},
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '100px', 'width': '100px', 'maxWidth': '100px'},
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
                     'fontWeight': 'bold'
@@ -113,7 +114,8 @@ layout = html.Div([
                 id='product-summary-table',
                 sort_action="native",
                 filter_action="native",
-                style_cell={'textAlign': 'left'},
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '100px', 'width': '100px', 'maxWidth': '100px'},
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
                     'fontWeight': 'bold'
@@ -152,7 +154,8 @@ layout = html.Div([
                 id='period-sales-table',
                 sort_action="native",
                 filter_action="native",
-                style_cell={'textAlign': 'left'},
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '100px', 'width': '100px', 'maxWidth': '100px'},
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
                     'fontWeight': 'bold'
@@ -206,7 +209,8 @@ layout = html.Div([
                 id='category-revenue-table',
                 sort_action="native",
                 filter_action="native",
-                style_cell={'textAlign': 'left'},
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '150px', 'width': '150px', 'maxWidth': '150px'},
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
                     'fontWeight': 'bold'
@@ -218,6 +222,66 @@ layout = html.Div([
                     }
                 ],
             )
+        ]),
+        
+        # Вкладка 5: Аналитика по партнерам
+        dcc.Tab(label='Аналитика по партнерам', value='tab-partner-analytics', children=[
+            html.Div([
+                html.Div([
+                    html.Label("Выберите период:"),
+                    dcc.DatePickerRange(
+                        id='partner-analytics-date-picker',
+                        min_date_allowed=date(2020, 1, 1),
+                        max_date_allowed=date.today(),
+                        start_date=date.today() - timedelta(days=30),
+                        end_date=date.today(),
+                        display_format='YYYY-MM-DD'
+                    ),
+                ], style={'display': 'inline-block', 'marginRight': '20px'}),
+                html.Div([
+                    dcc.Checklist(
+                        id='exclude-common-source-checklist',
+                        options=[{'label': 'Не учитывать "Общий источник"', 'value': 'exclude'}],
+                        value=['exclude'] # По умолчанию включен
+                    ),
+                ], style={'display': 'inline-block', 'verticalAlign': 'top', 'marginTop': '25px', 'marginRight': '20px'}),
+                html.Div([
+                    dcc.Checklist(
+                        id='show-income-checklist',
+                        options=[{'label': 'Выводить график дохода и поле "Доход" в таблице', 'value': 'show'}],
+                        value=[] # По умолчанию выключен
+                    ),
+                ], style={'display': 'inline-block', 'verticalAlign': 'top', 'marginTop': '25px'}),
+            ], style={'marginTop': '20px', 'marginBottom': '20px'}),
+            
+            dcc.Graph(id='partner-analytics-chart'),
+            dcc.Graph(id='partner-analytics-income-chart'),
+            
+            html.H4("Данные по партнерам"),
+            html.Div([
+                html.Button("Экспорт в Excel", id="export-excel-button", n_clicks=0),
+                html.Button("Экспорт в PDF", id="export-pdf-button", n_clicks=0, style={'marginLeft': '10px'}),
+            ], style={'marginBottom': '10px'}),
+            dash_table.DataTable(
+                id='partner-analytics-table',
+                sort_action="native",
+                export_format="xlsx",
+                export_headers="display",
+                filter_action="native",
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '150px', 'width': '150px', 'maxWidth': '150px'},
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }
+                ],
+            ),
+            dcc.Download(id="download-excel")
         ]),
     ]),
 ])

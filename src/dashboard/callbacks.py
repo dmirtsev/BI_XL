@@ -3,8 +3,8 @@ Callbacks для Dash-приложения.
 Здесь определяется интерактивная логика дашборда.
 """
 from datetime import datetime, timedelta
-from dash import html
-from dash.dependencies import Input, Output, State
+from dash import html, dcc
+from dash.dependencies import Input, Output, State, ClientsideFunction
 from dash.exceptions import PreventUpdate
 import pandas as pd
 import plotly.express as px
@@ -14,6 +14,8 @@ from .queries import (
     get_product_summary, get_paid_products_summary, get_categories,
     get_category_revenue_by_period
 )
+from analytics.models import SessionLocal
+from partner_analytics import queries as partner_queries
 
 def register_callbacks(app):
     """
@@ -343,6 +345,105 @@ def register_callbacks(app):
         ]
 
         return bar_fig, pie_fig, table_data, table_columns
+
+    # Callback для обновления вкладки "Аналитика по партнерам"
+    @app.callback(
+        [Output('partner-analytics-chart', 'figure'),
+         Output('partner-analytics-income-chart', 'figure'),
+         Output('partner-analytics-table', 'data'),
+         Output('partner-analytics-table', 'columns')],
+        [Input('partner-analytics-date-picker', 'start_date'),
+         Input('partner-analytics-date-picker', 'end_date'),
+         Input('exclude-common-source-checklist', 'value'),
+         Input('show-income-checklist', 'value')]
+    )
+    def update_partner_analytics_tab(start_date, end_date, exclude_common_value, show_income_value):
+        if not start_date or not end_date:
+            raise PreventUpdate
+
+        exclude_common = 'exclude' in exclude_common_value
+        show_income = 'show' in show_income_value
+
+        db = SessionLocal()
+        try:
+            data = partner_queries.get_partner_analytics_data(db, start_date, end_date, exclude_common)
+        finally:
+            db.close()
+
+        empty_fig = _create_empty_figure("")
+        if not data:
+            return _create_empty_figure("Нет данных за выбранный период"), empty_fig, [], []
+
+        df = pd.DataFrame(data, columns=['partner', 'order_count', 'total_income'])
+
+        # Сортируем данные для графика по регистрациям
+        df_sorted_by_registrations = df.sort_values(by='order_count', ascending=False)
+
+        # График по регистрациям
+        registrations_fig = px.bar(
+            df_sorted_by_registrations,
+            x='partner',
+            y='order_count',
+            title='Количество регистраций по партнерам',
+            labels={'partner': 'Партнер', 'order_count': 'Количество регистраций'},
+            text='order_count'
+        )
+        registrations_fig.update_traces(textposition='outside')
+        registrations_fig.update_layout(
+            uniformtext_minsize=8, 
+            uniformtext_mode='hide',
+            yaxis_range=[0, df_sorted_by_registrations['order_count'].max() * 1.1] # Увеличиваем диапазон оси Y
+        )
+
+        # График по доходу (если нужно)
+        income_fig = empty_fig
+        if show_income:
+            income_fig = px.bar(
+                df,
+                x='partner',
+                y='total_income',
+                title='Доход по партнерам',
+                labels={'partner': 'Партнер', 'total_income': 'Доход'},
+                text='total_income'
+            )
+            income_fig.update_traces(texttemplate='%{text:.2s}', textposition='outside')
+            income_fig.update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
+
+        # Таблица
+        df['total_income'] = df['total_income'].round(2)
+        table_data = df.to_dict('records')
+        
+        table_columns = [
+            {"name": "Партнер", "id": "partner"},
+            {"name": "Количество регистраций", "id": "order_count"},
+        ]
+        if show_income:
+            table_columns.append({"name": "Доход", "id": "total_income"})
+
+        return registrations_fig, income_fig, table_data, table_columns
+
+    # Clientside callback для экспорта в PDF
+    app.clientside_callback(
+        ClientsideFunction(
+            namespace='clientside',
+            function_name='print_page'
+        ),
+        Output('export-pdf-button', 'children'),
+        [Input('export-pdf-button', 'n_clicks')]
+    )
+
+    # Callback для экспорта в Excel
+    @app.callback(
+        Output("download-excel", "data"),
+        [Input("export-excel-button", "n_clicks")],
+        [State("partner-analytics-table", "data")]
+    )
+    def download_excel(n_clicks, data):
+        if n_clicks == 0 or not data:
+            raise PreventUpdate
+        
+        df = pd.DataFrame(data)
+        return dcc.send_data_frame(df.to_excel, "partner_analytics.xlsx", sheet_name="Sheet_1", index=False)
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""
