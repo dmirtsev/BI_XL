@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем исходный код проекта
 COPY ./src ./src
 COPY run.py .
+COPY analytics.db .
 COPY alembic.ini .
 COPY migrations ./migrations
 
