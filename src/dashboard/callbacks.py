@@ -83,6 +83,9 @@ def register_callbacks(app):
         [State('festival-income-input', 'value')]
     )
     def update_product_sales_chart(product_names, start_date, end_date, category_id, festival_income):
+        if product_names is None:
+            product_names = []
+            
         if not all([start_date, end_date]):
             raise PreventUpdate
 
