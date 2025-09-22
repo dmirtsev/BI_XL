@@ -12,8 +12,7 @@ analytics_api = Blueprint('analytics_api', __name__)
 
 # Папка для временного хранения загруженных файлов
 UPLOAD_FOLDER = 'uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @analytics_api.route('/upload', methods=['POST'])
 def upload_file():
