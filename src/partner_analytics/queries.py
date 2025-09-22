@@ -30,7 +30,7 @@ def get_partner_analytics_data(db: Session, start_date: str, end_date: str, excl
 
     query_sql += """
         GROUP BY
-            partner
+            partner, o.utm_source
         ORDER BY
             total_income DESC;
     """

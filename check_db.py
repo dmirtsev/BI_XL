@@ -11,7 +11,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def check_ids():
     db = SessionLocal()
     try:
-        target_id = "PH11ga6ev0emd7JNsTvsqg"
+        target_id = "bBloAhg6y0GnINkbsxtslA"
 
         # Проверка в контактах (оставляем как есть или убираем, если не нужно)
         contact = db.query(Contact).filter(Contact.id == target_id).first()
@@ -25,7 +25,15 @@ def check_ids():
         if orders:
             print(f"Найдены заказы с utm_source {target_id}:")
             for order in orders:
-                print(order)
+                print(
+                    f"Order(id='{order.id}', "
+                    f"number='{order.number}', "
+                    f"status='{order.status}', "
+                    f"creation_date='{order.creation_date}', "
+                    f"content='{order.content}', "
+                    f"income={order.income}, "
+                    f"utm_source='{order.utm_source}')"
+                )
         else:
             print(f"Заказы с utm_source {target_id} не найдены.")
 
