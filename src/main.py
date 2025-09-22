@@ -66,8 +66,8 @@ def index():
             <h1>Главное меню</h1>
             
             <div class="stats-container" style="background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <p><strong>Макс. дата создания заказа:</strong> {{ max_order_date.strftime('%Y-%m-%d %H:%M:%S') if max_order_date else 'Нет данных' }}</p>
-                <p><strong>Макс. дата создания контакта:</strong> {{ max_contact_date.strftime('%Y-%m-%d %H:%M:%S') if max_contact_date else 'Нет данных' }}</p>
+                <p><strong>Макс. дата создания заказа:</strong> {{ max_order_date.strftime('%d-%m-%Y %H:%M') if max_order_date else 'Нет данных' }}</p>
+                <p><strong>Макс. дата создания контакта:</strong> {{ max_contact_date.strftime('%d-%m-%Y %H:%M') if max_contact_date else 'Нет данных' }}</p>
             </div>
 
             <!-- Модуль Аутентификации -->

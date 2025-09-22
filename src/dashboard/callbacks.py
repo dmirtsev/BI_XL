@@ -377,7 +377,7 @@ def register_callbacks(app):
         if not data:
             return _create_empty_figure("Нет данных за выбранный период"), empty_fig, [], []
 
-        df = pd.DataFrame(data, columns=['partner', 'order_count', 'total_income'])
+        df = pd.DataFrame(data, columns=['partner', 'utm_source', 'order_count', 'total_income'])
 
         # Сортируем данные для графика по регистрациям
         df_sorted_by_registrations = df.sort_values(by='order_count', ascending=False)
@@ -418,6 +418,7 @@ def register_callbacks(app):
         
         table_columns = [
             {"name": "Партнер", "id": "partner"},
+            {"name": "UTM Source", "id": "utm_source"},
             {"name": "Количество регистраций", "id": "order_count"},
         ]
         if show_income:

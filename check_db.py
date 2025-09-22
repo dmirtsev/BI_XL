@@ -1,45 +1,36 @@
-import sys
-from pathlib import Path
-
-# Добавляем корневую папку проекта в sys.path
-project_root = Path(__file__).parent.resolve()
-sys.path.insert(0, str(project_root))
-
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.analytics.models import Order
 from src.contacts.models import Contact
 
-def check_db_counts():
-    """
-    Подключается к базе данных и выводит количество записей в таблицах.
-    """
-    DATABASE_URL = "sqlite:///./analytics.db"
-    engine = create_engine(DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-    
-    try:
-        inspector = inspect(engine)
-        
-        # Проверка таблицы 'orders'
-        if inspector.has_table("orders"):
-            orders_count = db.query(Order).count()
-            print(f"Количество записей в таблице 'orders': {orders_count}")
-        else:
-            print("Таблица 'orders' не найдена.")
+# Подключение к базе данных
+DATABASE_URL = "sqlite:///analytics.db"
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-        # Проверка таблицы 'contacts'
-        if inspector.has_table("contacts"):
-            contacts_count = db.query(Contact).count()
-            print(f"Количество записей в таблице 'contacts': {contacts_count}")
+def check_ids():
+    db = SessionLocal()
+    try:
+        target_id = "PH11ga6ev0emd7JNsTvsqg"
+
+        # Проверка в контактах (оставляем как есть или убираем, если не нужно)
+        contact = db.query(Contact).filter(Contact.id == target_id).first()
+        if contact:
+            print(f"Найден контакт с ID {target_id}: {contact}")
         else:
-            print("Таблица 'contacts' не найдена.")
-            
-    except Exception as e:
-        print(f"Произошла ошибка при подключении к базе данных: {e}")
+            print(f"Контакт с ID {target_id} не найден.")
+
+        # Проверка в заказах по utm_source
+        orders = db.query(Order).filter(Order.utm_source == target_id).all()
+        if orders:
+            print(f"Найдены заказы с utm_source {target_id}:")
+            for order in orders:
+                print(order)
+        else:
+            print(f"Заказы с utm_source {target_id} не найдены.")
+
     finally:
         db.close()
 
 if __name__ == "__main__":
-    check_db_counts()
+    check_ids()

@@ -13,6 +13,7 @@ def get_partner_analytics_data(db: Session, start_date: str, end_date: str, excl
     query_sql = """
         SELECT
             COALESCE(c.full_name, 'Общий источник') AS partner,
+            o.utm_source,
             COUNT(o.id) AS order_count,
             SUM(o.income) AS total_income
         FROM
