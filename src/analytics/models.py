@@ -5,9 +5,12 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, 
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+import os
+
 # --- Настройка базы данных ---
-# Используем SQLite, которая хранит базу данных в одном файле.
-DATABASE_URL = "sqlite:///./analytics.db"
+# Используем SQLite. Путь к базе данных берется из переменной окружения,
+# если она не задана, используется значение по умолчанию "sqlite:///./analytics.db".
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./analytics.db")
 
 # Создаем "движок" для подключения к базе
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
