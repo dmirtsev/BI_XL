@@ -10,4 +10,4 @@ from main import dash_app
 server = dash_app.server
 
 if __name__ == "__main__":
-    dash_app.run_server(debug=True)
+    dash_app.run_server(debug=True, port=8051)

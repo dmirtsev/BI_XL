@@ -13,7 +13,8 @@ import plotly.graph_objects as go
 from .queries import (
     get_sales_by_day, get_unique_products, get_sales_by_product, 
     get_product_summary, get_paid_products_summary, get_categories,
-    get_category_revenue_by_period
+    get_category_revenue_by_period, get_monthly_sales, get_monthly_sales_by_product,
+    get_monthly_sales_by_category
 )
 from analytics.models import SessionLocal
 from partner_analytics import queries as partner_queries
@@ -54,12 +55,13 @@ def register_callbacks(app):
          Output('category-dropdown-product', 'options'),
          Output('category-dropdown-period', 'options'),
          Output('exclude-category-dropdown', 'options'),
-         Output('include-category-dropdown', 'options')],
+         Output('include-category-dropdown', 'options'),
+         Output('monthly-sales-category-dropdown', 'options')],
         [Input('tabs-main', 'value')] # Триггер при загрузке любой вкладки
     )
     def update_category_dropdowns(tab):
         categories = get_categories()
-        return [categories, categories, categories, categories, categories]
+        return [categories, categories, categories, categories, categories, categories]
 
     # Callback для обновления списка продуктов в зависимости от выбранной категории
     @app.callback(
@@ -354,8 +356,16 @@ def register_callbacks(app):
         pie_fig.update_traces(textposition='inside', textinfo='percent+label')
 
         # 3. Таблица
+        total_revenue_sum = df['total_revenue'].sum()
         df['total_revenue'] = df['total_revenue'].round(2)
         table_data = df.to_dict('records')
+        
+        # Добавляем итоговую строку
+        table_data.append({
+            'category_name': 'Итого',
+            'total_revenue': round(total_revenue_sum, 2)
+        })
+
         table_columns = [
             {"name": "Категория", "id": "category_name"},
             {"name": "Доход", "id": "total_revenue"},
@@ -545,6 +555,119 @@ def register_callbacks(app):
 
         return total_income_text, style, title, fund_income_text, fund_after_tax_text, employee_income_text
 
+
+    # Callback для обновления списка продуктов на вкладке "Помесячные продажи"
+    @app.callback(
+        Output('monthly-sales-product-dropdown', 'options'),
+        [Input('monthly-sales-category-dropdown', 'value')]
+    )
+    def update_monthly_sales_product_dropdown(category_ids):
+        if not category_ids:
+            # Если категории не выбраны, можно вернуть пустой список или все продукты
+            products = get_unique_products()
+        else:
+            products = get_unique_products(category_id=category_ids)
+        return [{'label': i, 'value': i} for i in products]
+
+    # Callback для обновления вкладки "Помесячные продажи"
+    @app.callback(
+        [Output('monthly-sales-graph', 'figure'),
+         Output('monthly-sales-table', 'data'),
+         Output('monthly-sales-table', 'columns'),
+         Output('monthly-sales-by-product-graph', 'figure'),
+         Output('monthly-sales-by-product-table', 'data'),
+         Output('monthly-sales-by-product-table', 'columns'),
+         Output('monthly-sales-by-category-graph', 'figure'),
+         Output('monthly-sales-by-category-table', 'data'),
+         Output('monthly-sales-by-category-table', 'columns')],
+        [Input('monthly-sales-date-picker', 'start_date'),
+         Input('monthly-sales-date-picker', 'end_date'),
+         Input('monthly-sales-category-dropdown', 'value'),
+         Input('monthly-sales-product-dropdown', 'value')]
+    )
+    def update_monthly_sales_tab(start_date, end_date, category_ids, product_names):
+        if not start_date or not end_date:
+            raise PreventUpdate
+
+        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+        end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
+
+        # Получение данных
+        df_monthly = get_monthly_sales(start_date, end_date_corrected, category_ids, product_names)
+        df_by_product = get_monthly_sales_by_product(start_date, end_date_corrected, category_ids, product_names)
+        df_by_category = get_monthly_sales_by_category(start_date, end_date_corrected, category_ids, product_names)
+
+        empty_fig = _create_empty_figure("Нет данных за выбранный период")
+        if df_monthly.empty:
+            return empty_fig, [], [], empty_fig, [], [], empty_fig, [], []
+
+        # --- Первый график и таблица (общие) ---
+        total_monthly_sales = df_monthly['total_sales'].sum()
+        fig_monthly = px.bar(
+            df_monthly, x='month', y='total_sales', title='Динамика продаж по месяцам',
+            labels={'month': 'Месяц', 'total_sales': 'Сумма продаж'}, text='total_sales'
+        )
+        fig_monthly.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+        fig_monthly.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', yaxis_title="Сумма продаж")
+        df_monthly['total_sales'] = df_monthly['total_sales'].apply(lambda x: f"{x:,.2f}".replace(",", " "))
+        table_monthly_data = df_monthly.to_dict('records')
+        table_monthly_data.append({
+            'month': 'Итого',
+            'total_sales': f"{total_monthly_sales:,.2f}".replace(",", " ")
+        })
+        table_monthly_columns = [{"name": "Месяц", "id": "month"}, {"name": "Сумма продаж", "id": "total_sales"}]
+
+        # --- Второй график и таблица (по продуктам) ---
+        if df_by_product.empty:
+            fig_by_product, table_by_product_data, table_by_product_columns = empty_fig, [], []
+        else:
+            total_product_sales = df_by_product['total_sales'].sum()
+            fig_by_product = px.bar(
+                df_by_product, x='month', y='total_sales', color='product', title='Динамика продаж по продуктам',
+                labels={'month': 'Месяц', 'total_sales': 'Сумма продаж', 'product': 'Продукт'},
+                barmode='group', text='total_sales'
+            )
+            fig_by_product.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+            fig_by_product.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', yaxis_title="Сумма продаж")
+            df_by_product['total_sales'] = df_by_product['total_sales'].apply(lambda x: f"{x:,.2f}".replace(",", " "))
+            table_by_product_data = df_by_product.to_dict('records')
+            table_by_product_data.append({
+                'month': 'Итого',
+                'product': '',
+                'total_sales': f"{total_product_sales:,.2f}".replace(",", " ")
+            })
+            table_by_product_columns = [
+                {"name": "Месяц", "id": "month"}, {"name": "Продукт", "id": "product"},
+                {"name": "Сумма продаж", "id": "total_sales"}
+            ]
+
+        # --- Третий график и таблица (по категориям) ---
+        if df_by_category.empty:
+            fig_by_category, table_by_category_data, table_by_category_columns = empty_fig, [], []
+        else:
+            total_category_sales = df_by_category['total_sales'].sum()
+            fig_by_category = px.bar(
+                df_by_category, x='month', y='total_sales', color='category', title='Динамика продаж по категориям',
+                labels={'month': 'Месяц', 'total_sales': 'Сумма продаж', 'category': 'Категория'},
+                barmode='group', text='total_sales'
+            )
+            fig_by_category.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+            fig_by_category.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', yaxis_title="Сумма продаж")
+            df_by_category['total_sales'] = df_by_category['total_sales'].apply(lambda x: f"{x:,.2f}".replace(",", " "))
+            table_by_category_data = df_by_category.to_dict('records')
+            table_by_category_data.append({
+                'month': 'Итого',
+                'category': '',
+                'total_sales': f"{total_category_sales:,.2f}".replace(",", " ")
+            })
+            table_by_category_columns = [
+                {"name": "Месяц", "id": "month"}, {"name": "Категория", "id": "category"},
+                {"name": "Сумма продаж", "id": "total_sales"}
+            ]
+
+        return (fig_monthly, table_monthly_data, table_monthly_columns,
+                fig_by_product, table_by_product_data, table_by_product_columns,
+                fig_by_category, table_by_category_data, table_by_category_columns)
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""

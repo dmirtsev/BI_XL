@@ -312,6 +312,108 @@ layout = html.Div([
             ),
             dcc.Download(id="download-excel")
         ]),
+        
+        # Вкладка 6: Помесячные продажи
+        dcc.Tab(label='Помесячные продажи', value='tab-monthly-sales', children=[
+            html.Div([
+                html.Div([
+                    html.Label("Выберите период:"),
+                    dcc.DatePickerRange(
+                        id='monthly-sales-date-picker',
+                        min_date_allowed=date(2020, 1, 1),
+                        max_date_allowed=date.today(),
+                        start_date=date.today() - timedelta(days=365),
+                        end_date=date.today(),
+                        display_format='YYYY-MM-DD'
+                    ),
+                ], style={'display': 'inline-block', 'marginRight': '20px', 'verticalAlign': 'top'}),
+                html.Div([
+                    html.Label("Выберите категорию:"),
+                    dcc.Dropdown(
+                        id='monthly-sales-category-dropdown',
+                        multi=True,
+                        placeholder="Все категории"
+                    ),
+                ], style={'display': 'inline-block', 'width': '30%', 'marginRight': '2%', 'verticalAlign': 'top'}),
+                html.Div([
+                    html.Label("Выберите продукт(ы):"),
+                    dcc.Dropdown(
+                        id='monthly-sales-product-dropdown',
+                        multi=True,
+                        placeholder="Все продукты"
+                    ),
+                ], style={'display': 'inline-block', 'width': '30%', 'verticalAlign': 'top'}),
+            ], style={'marginTop': '20px', 'marginBottom': '20px'}),
+            
+            dcc.Graph(id='monthly-sales-graph'),
+            
+            html.H4("Данные по месяцам"),
+            dash_table.DataTable(
+                id='monthly-sales-table',
+                sort_action="native",
+                filter_action="native",
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '150px', 'width': '150px', 'maxWidth': '150px'},
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }
+                ],
+            ),
+
+            html.Hr(style={'marginTop': '30px', 'marginBottom': '30px'}),
+
+            html.H4("Продажи по продуктам за месяц"),
+            dcc.Graph(id='monthly-sales-by-product-graph'),
+
+            html.H4("Данные по продуктам за месяц"),
+            dash_table.DataTable(
+                id='monthly-sales-by-product-table',
+                sort_action="native",
+                filter_action="native",
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '150px', 'width': '150px', 'maxWidth': '150px'},
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }
+                ],
+            ),
+
+            html.Hr(style={'marginTop': '30px', 'marginBottom': '30px'}),
+
+            html.H4("Продажи по категориям за месяц"),
+            dcc.Graph(id='monthly-sales-by-category-graph'),
+
+            html.H4("Данные по категориям за месяц"),
+            dash_table.DataTable(
+                id='monthly-sales-by-category-table',
+                sort_action="native",
+                filter_action="native",
+                style_table={'overflowX': 'auto'},
+                style_cell={'textAlign': 'left', 'minWidth': '150px', 'width': '150px', 'maxWidth': '150px'},
+                style_header={
+                    'backgroundColor': 'rgb(230, 230, 230)',
+                    'fontWeight': 'bold'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }
+                ],
+            )
+        ]),
     ]),
     dcc.Store(id='max-date-store') # Хранилище для максимальной даты
 ])

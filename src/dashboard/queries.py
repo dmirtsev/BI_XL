@@ -31,6 +31,98 @@ def get_sales_by_day(start_date, end_date, category_id=None):
     finally:
         db.close()
 
+def get_monthly_sales_by_category(start_date, end_date, category_ids=None, product_names=None):
+    """
+    Возвращает суммарный доход по месяцам в разрезе категорий за указанный период.
+    """
+    db = SessionLocal()
+    try:
+        query = db.query(
+            func.strftime('%Y-%m', Order.creation_date).label('month'),
+            ProductCategory.name.label('category'),
+            func.sum(Order.income).label('total_sales')
+        ).join(Product, Order.content == Product.name)\
+         .join(product_category_association)\
+         .join(ProductCategory)\
+         .filter(Order.income > 0)
+
+        if start_date and end_date:
+            query = query.filter(Order.creation_date.between(start_date, end_date))
+
+        if category_ids:
+            query = query.filter(ProductCategory.id.in_(category_ids))
+        
+        if product_names:
+            query = query.filter(Order.content.in_(product_names))
+
+        query = query.group_by('month', 'category').order_by('month', 'category')
+        
+        df = pd.read_sql(query.statement, db.bind)
+        return df
+    finally:
+        db.close()
+
+def get_monthly_sales_by_product(start_date, end_date, category_ids=None, product_names=None):
+    """
+    Возвращает суммарный доход по месяцам в разрезе продуктов за указанный период,
+    опционально фильтруя по категориям и продуктам.
+    """
+    db = SessionLocal()
+    try:
+        query = db.query(
+            func.strftime('%Y-%m', Order.creation_date).label('month'),
+            Order.content.label('product'),
+            func.sum(Order.income).label('total_sales')
+        ).filter(Order.income > 0)
+
+        if start_date and end_date:
+            query = query.filter(Order.creation_date.between(start_date, end_date))
+
+        if category_ids:
+            query = query.join(Product, Order.content == Product.name)\
+                         .join(product_category_association)\
+                         .filter(product_category_association.c.category_id.in_(category_ids))
+        
+        if product_names:
+            query = query.filter(Order.content.in_(product_names))
+
+        query = query.group_by('month', 'product').order_by('month', 'product')
+        
+        df = pd.read_sql(query.statement, db.bind)
+        return df
+    finally:
+        db.close()
+
+def get_monthly_sales(start_date, end_date, category_ids=None, product_names=None):
+    """
+    Возвращает суммарный доход по месяцам за указанный период,
+    опционально фильтруя по категориям и продуктам.
+    """
+    db = SessionLocal()
+    try:
+        query = db.query(
+            func.strftime('%Y-%m', Order.creation_date).label('month'),
+            func.sum(Order.income).label('total_sales')
+        ).filter(Order.income > 0)
+
+        if start_date and end_date:
+            query = query.filter(Order.creation_date.between(start_date, end_date))
+
+        if category_ids:
+            query = query.join(Product, Order.content == Product.name)\
+                         .join(product_category_association)\
+                         .filter(product_category_association.c.category_id.in_(category_ids))
+        
+        if product_names:
+            query = query.filter(Order.content.in_(product_names))
+
+        query = query.group_by('month').order_by('month')
+        
+        df = pd.read_sql(query.statement, db.bind)
+        return df
+    finally:
+        db.close()
+
 def get_category_revenue_by_period(start_date, end_date, excluded_category_ids=None, included_category_ids=None):
     """
     Возвращает доход по каждой категории продуктов за указанный период,
@@ -100,6 +192,7 @@ def get_product_summary(product_names, start_date, end_date, category_id=None):
 def get_unique_products(category_id=None):
     """
     Возвращает список уникальных продуктов, опционально фильтруя по категории.
+    category_id может быть одиночным значением или списком.
     """
     db = SessionLocal()
     try:
@@ -107,8 +200,14 @@ def get_unique_products(category_id=None):
 
         if category_id:
             query = query.join(Product, Order.content == Product.name)\
-                         .join(product_category_association)\
-                         .filter(product_category_association.c.category_id == category_id)
+                         .join(product_category_association)
+            
+            # Проверяем, является ли category_id списком и не пуст ли он
+            if isinstance(category_id, list) and category_id:
+                query = query.filter(product_category_association.c.category_id.in_(category_id))
+            # Проверяем, является ли category_id одиночным числом
+            elif isinstance(category_id, int):
+                query = query.filter(product_category_association.c.category_id == category_id)
 
         products = query.distinct().order_by(Order.content).all()
         return [product[0] for product in products]
