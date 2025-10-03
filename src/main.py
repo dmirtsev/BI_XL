@@ -1,3 +1,5 @@
+import pytz
+from datetime import datetime
 from flask import Flask, jsonify, render_template, render_template_string
 from sqlalchemy import func
 from src.auth.api import auth_api
@@ -37,10 +39,21 @@ def index():
     """
     db = SessionLocal()
     try:
-        max_order_date = db.query(func.max(Order.creation_date)).scalar()
-        max_contact_date = db.query(func.max(Contact.creation_date)).scalar()
+        max_order_date_utc = db.query(func.max(Order.creation_date)).scalar()
+        max_contact_date_utc = db.query(func.max(Contact.creation_date)).scalar()
     finally:
         db.close()
+
+    # Конвертация времени в московское
+    moscow_tz = pytz.timezone('Europe/Moscow')
+    
+    max_order_date = None
+    if max_order_date_utc:
+        max_order_date = max_order_date_utc.replace(tzinfo=pytz.utc).astimezone(moscow_tz)
+
+    max_contact_date = None
+    if max_contact_date_utc:
+        max_contact_date = max_contact_date_utc.replace(tzinfo=pytz.utc).astimezone(moscow_tz)
 
     html_template = """
     <!DOCTYPE html>

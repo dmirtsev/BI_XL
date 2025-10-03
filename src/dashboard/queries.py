@@ -31,7 +31,7 @@ def get_sales_by_day(start_date, end_date, category_id=None):
     finally:
         db.close()
 
-def get_category_revenue_by_period(start_date, end_date, excluded_category_ids=None):
+def get_category_revenue_by_period(start_date, end_date, excluded_category_ids=None, included_category_ids=None):
     """
     Возвращает доход по каждой категории продуктов за указанный период,
     исключая категории из списка excluded_category_ids.
@@ -45,9 +45,14 @@ def get_category_revenue_by_period(start_date, end_date, excluded_category_ids=N
          .join(Product, Order.content == Product.name)\
          .join(product_category_association, Product.id == product_category_association.c.product_id)\
          .join(ProductCategory, ProductCategory.id == product_category_association.c.category_id)\
-         .filter(Order.creation_date.between(start_date, end_date))\
          .filter(Order.income > 0)
 
+        if start_date and end_date:
+            query = query.filter(Order.creation_date.between(start_date, end_date))
+
+        if included_category_ids:
+            query = query.filter(ProductCategory.id.in_(included_category_ids))
+            
         if excluded_category_ids:
             query = query.filter(ProductCategory.id.notin_(excluded_category_ids))
 
@@ -123,31 +128,46 @@ def get_categories():
 
 def get_sales_by_product(product_names, start_date, end_date, category_id=None):
     """
-    Возвращает дневной и накопительный доход для указанных продуктов и периода.
+    Возвращает дневной и накопительный доход для указанных продуктов и периода,
+    а также максимальную дату создания заказа в этом периоде.
     """
     db = SessionLocal()
     try:
-        # Базовый запрос для агрегации
-        daily_agg_query = db.query(
+        # --- Запрос для получения максимальной даты ---
+        max_date_query = db.query(func.max(Order.creation_date)).filter(
+            Order.creation_date.between(start_date, end_date)
+        )
+
+        # --- Общий запрос для данных ---
+        base_query = db.query(Order).filter(Order.creation_date.between(start_date, end_date))
+
+        # Применяем фильтры к обоим запросам
+        if product_names:
+            base_query = base_query.filter(Order.content.in_(product_names))
+            max_date_query = max_date_query.filter(Order.content.in_(product_names))
+        
+        if category_id:
+            join_clause = Product.__table__.join(
+                product_category_association,
+                Product.id == product_category_association.c.product_id
+            )
+            base_query = base_query.join(join_clause, Product.name == Order.content)\
+                                   .filter(product_category_association.c.category_id == category_id)
+            max_date_query = max_date_query.join(join_clause, Product.name == Order.content)\
+                                           .filter(product_category_association.c.category_id == category_id)
+
+        # Выполняем запрос на максимальную дату
+        max_creation_date = max_date_query.scalar()
+
+        # --- Запрос для агрегации данных (как и раньше) ---
+        daily_agg_subquery = base_query.with_entities(
             func.date(Order.creation_date).label('date'),
             func.sum(Order.income).label('daily_sales'),
             func.count(Order.id).label('total_orders'),
             func.sum(case((Order.income > 0, 1), else_=0)).label('paid_orders')
-        ).filter(Order.creation_date.between(start_date, end_date))
+        ).group_by(func.date(Order.creation_date)).subquery()
 
-        # Применяем фильтры
-        if product_names:
-            daily_agg_query = daily_agg_query.filter(Order.content.in_(product_names))
-        
-        if category_id:
-            daily_agg_query = daily_agg_query.join(Product, Order.content == Product.name)\
-                                             .join(product_category_association)\
-                                             .filter(product_category_association.c.category_id == category_id)
-
-        # Группируем и создаем подзапрос
-        daily_agg_subquery = daily_agg_query.group_by(func.date(Order.creation_date)).subquery()
-
-        # Основной запрос с использованием оконной функции для расчета накопительной суммы
+        # Основной запрос с оконной функцией
         query = (
             db.query(
                 daily_agg_subquery.c.date,
@@ -162,7 +182,8 @@ def get_sales_by_product(product_names, start_date, end_date, category_id=None):
         )
         
         df = pd.read_sql(query.statement, db.bind)
-        return df
+        
+        return df, max_creation_date
     finally:
         db.close()
 

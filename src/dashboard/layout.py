@@ -83,6 +83,10 @@ layout = html.Div([
                     ),
                 ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
             ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'flex-start', 'flexWrap': 'wrap', 'marginTop': '20px', 'marginBottom': '20px'}),
+            
+            # Контейнер для общего дохода
+            html.Div(id='total-income-product', style={'fontSize': 20, 'fontWeight': 'bold', 'marginTop': '20px', 'marginBottom': '20px'}),
+
             dcc.Graph(id='sales-by-product-chart'),
             html.H4("Данные по доходам"),
             dash_table.DataTable(
@@ -126,7 +130,19 @@ layout = html.Div([
                         'backgroundColor': 'rgb(248, 248, 248)'
                     }
                 ],
-            )
+            ),
+            
+            # Блок для Бирюзового фонда
+            html.Div(id='turquoise-fund-block', style={'display': 'none', 'marginTop': '30px', 'padding': '15px', 'border': '2px solid #40E0D0', 'borderRadius': '5px'}, children=[
+                html.H4(id='turquoise-fund-title', style={'color': '#40E0D0'}),
+                html.Div(id='turquoise-fund-income', style={'fontWeight': 'bold'}),
+                html.Div([
+                    html.Label("Число сотрудников:", style={'marginRight': '10px'}),
+                    dcc.Input(id='employee-count-input', type='number', value=2, style={'width': '100px'}),
+                ], style={'marginTop': '10px'}),
+                html.Div(id='turquoise-fund-after-tax', style={'marginTop': '10px'}),
+                html.Div(id='employee-income', style={'marginTop': '10px'}),
+            ])
         ]),
         
         # Вкладка 3: Период и продажи
@@ -182,7 +198,13 @@ layout = html.Div([
                         end_date=date.today(),
                         display_format='YYYY-MM-DD'
                     ),
-                ], style={'display': 'inline-block', 'marginRight': '20px'}),
+                    dcc.Checklist(
+                        id='category-revenue-date-checklist',
+                        options=[{'label': 'Учитывать даты?', 'value': 'USE_DATES'}],
+                        value=['USE_DATES'], # По умолчанию включен
+                        style={'marginTop': '5px'}
+                    ),
+                ], style={'display': 'inline-block', 'marginRight': '20px', 'verticalAlign': 'top'}),
                 html.Div([
                     html.Label("Исключить категории:"),
                     dcc.Dropdown(
@@ -190,8 +212,16 @@ layout = html.Div([
                         multi=True,
                         placeholder="Выберите категории для исключения"
                     ),
-                ], style={'display': 'inline-block', 'width': '50%'}),
-            ], style={'marginTop': '20px', 'marginBottom': '20px'}),
+                ], style={'display': 'inline-block', 'width': '45%', 'marginRight': '2%'}),
+                html.Div([
+                    html.Label("Включить категории:"),
+                    dcc.Dropdown(
+                        id='include-category-dropdown',
+                        multi=True,
+                        placeholder="Выберите категории для включения"
+                    ),
+                ], style={'display': 'inline-block', 'width': '45%'}),
+            ], style={'marginTop': '20px', 'marginBottom': '20px', 'display': 'flex'}),
             
             html.Div([
                 # Контейнер для графиков
@@ -260,7 +290,6 @@ layout = html.Div([
             html.H4("Данные по партнерам"),
             html.Div([
                 html.Button("Экспорт в Excel", id="export-excel-button", n_clicks=0),
-                html.Button("Экспорт в PDF", id="export-pdf-button", n_clicks=0, style={'marginLeft': '10px'}),
             ], style={'marginBottom': '10px'}),
             dash_table.DataTable(
                 id='partner-analytics-table',
@@ -284,4 +313,5 @@ layout = html.Div([
             dcc.Download(id="download-excel")
         ]),
     ]),
+    dcc.Store(id='max-date-store') # Хранилище для максимальной даты
 ])

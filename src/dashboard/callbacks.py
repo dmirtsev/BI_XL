@@ -2,6 +2,7 @@
 Callbacks для Dash-приложения.
 Здесь определяется интерактивная логика дашборда.
 """
+import pytz
 from datetime import datetime, timedelta
 from dash import html, dcc
 from dash.dependencies import Input, Output, State, ClientsideFunction
@@ -52,12 +53,13 @@ def register_callbacks(app):
         [Output('category-dropdown-general', 'options'),
          Output('category-dropdown-product', 'options'),
          Output('category-dropdown-period', 'options'),
-         Output('exclude-category-dropdown', 'options')],
+         Output('exclude-category-dropdown', 'options'),
+         Output('include-category-dropdown', 'options')],
         [Input('tabs-main', 'value')] # Триггер при загрузке любой вкладки
     )
     def update_category_dropdowns(tab):
         categories = get_categories()
-        return [categories, categories, categories, categories]
+        return [categories, categories, categories, categories, categories]
 
     # Callback для обновления списка продуктов в зависимости от выбранной категории
     @app.callback(
@@ -75,7 +77,8 @@ def register_callbacks(app):
          Output('product-sales-table', 'columns'),
          Output('product-summary-table', 'data'),
          Output('product-summary-table', 'columns'),
-         Output('conversion-summary-div', 'children')],
+         Output('conversion-summary-div', 'children'),
+         Output('max-date-store', 'data')],  # Добавляем вывод в хранилище
         [Input('product-dropdown', 'value'),
          Input('start-date-picker-product', 'date'),
          Input('end-date-picker-product', 'date'),
@@ -97,18 +100,19 @@ def register_callbacks(app):
         empty_data = []
         empty_columns = []
         empty_conversion_text = ""
+        empty_max_date = None
 
         if not product_names and not category_id:
-            return empty_figure, empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
+            return empty_figure, empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text, empty_max_date
 
         # Данные для графика и первой таблицы
-        df = get_sales_by_product(product_names, start_date, end_date_corrected, category_id)
+        df, max_creation_date = get_sales_by_product(product_names, start_date, end_date_corrected, category_id)
         
         # Данные для сводной таблицы
         summary_df = get_product_summary(product_names, start_date, end_date_corrected, category_id)
 
         if df.empty:
-            return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text
+            return _create_empty_figure("Нет данных по выбранным продуктам за этот период"), empty_data, empty_columns, empty_data, empty_columns, empty_conversion_text, empty_max_date
 
         # Округляем числовые значения до 2 знаков после запятой
         df['daily_sales'] = df['daily_sales'].round(2)
@@ -230,7 +234,9 @@ def register_callbacks(app):
                 {"name": "Средний чек", "id": "average_check"},
             ]
 
-        return fig, table_data, table_columns, summary_table_data, summary_table_columns, conversion_text
+        # Преобразуем дату в строку для JSON-сериализации
+        max_date_str = max_creation_date.isoformat() if max_creation_date else None
+        return fig, table_data, table_columns, summary_table_data, summary_table_columns, conversion_text, max_date_str
 
     # Callback для обновления отчета "Период и продажи"
     @app.callback(
@@ -300,17 +306,25 @@ def register_callbacks(app):
          Output('category-revenue-table', 'columns')],
         [Input('category-revenue-date-picker', 'start_date'),
          Input('category-revenue-date-picker', 'end_date'),
-         Input('exclude-category-dropdown', 'value')]
+         Input('exclude-category-dropdown', 'value'),
+         Input('include-category-dropdown', 'value'),
+         Input('category-revenue-date-checklist', 'value')]
     )
-    def update_category_revenue_tab(start_date, end_date, excluded_categories):
-        if not start_date or not end_date:
+    def update_category_revenue_tab(start_date, end_date, excluded_categories, included_categories, date_checklist):
+        use_dates = 'USE_DATES' in date_checklist
+
+        if use_dates and (not start_date or not end_date):
             raise PreventUpdate
 
-        # Корректируем конечную дату
-        end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
-        end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
+        start_date_final = None
+        end_date_final = None
+        if use_dates:
+            # Корректируем конечную дату
+            end_date_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            end_date_final = end_date_dt.strftime('%Y-%m-%d')
+            start_date_final = start_date
 
-        df = get_category_revenue_by_period(start_date, end_date_corrected, excluded_categories)
+        df = get_category_revenue_by_period(start_date_final, end_date_final, excluded_categories, included_categories)
 
         empty_figure = _create_empty_figure("Нет данных за выбранный период")
         
@@ -426,15 +440,15 @@ def register_callbacks(app):
 
         return registrations_fig, income_fig, table_data, table_columns
 
-    # Clientside callback для экспорта в PDF
-    app.clientside_callback(
-        ClientsideFunction(
-            namespace='clientside',
-            function_name='print_page'
-        ),
-        Output('export-pdf-button', 'children'),
-        [Input('export-pdf-button', 'n_clicks')]
-    )
+    # Clientside callback для экспорта в PDF (закомментировано из-за ошибки)
+    # app.clientside_callback(
+    #     ClientsideFunction(
+    #         namespace='clientside',
+    #         function_name='print_page'
+    #     ),
+    #     Output('export-pdf-button', 'children'),
+    #     [Input('export-pdf-button', 'n_clicks')]
+    # )
 
     # Callback для экспорта в Excel
     @app.callback(
@@ -448,6 +462,89 @@ def register_callbacks(app):
         
         df = pd.DataFrame(data)
         return dcc.send_data_frame(df.to_excel, "partner_analytics.xlsx", sheet_name="Sheet_1", index=False)
+
+    # Callback для обновления общего дохода и блока "Бирюзовый фонд"
+    @app.callback(
+        [Output('total-income-product', 'children'),
+         Output('turquoise-fund-block', 'style'),
+         Output('turquoise-fund-title', 'children'),
+         Output('turquoise-fund-income', 'children'),
+         Output('turquoise-fund-after-tax', 'children'),
+         Output('employee-income', 'children')],
+        [Input('product-summary-table', 'data'),
+         Input('category-dropdown-product', 'value'),
+         Input('employee-count-input', 'value'),
+         Input('max-date-store', 'data')],
+        [State('category-dropdown-product', 'options')]
+    )
+    def update_turquoise_fund(summary_data, category_id, employee_count, max_date_str, category_options):
+        default_title = "Бирюзовый фонд"
+        if not summary_data:
+            return "Общий доход: 0.00 руб.", {'display': 'none'}, default_title, "", "", ""
+
+        # 1. Расчет общего дохода
+        total_income = 0
+        # Итоговая строка обычно последняя
+        if summary_data and summary_data[-1]['product'] == 'Итого':
+            total_income = summary_data[-1].get('total_income', 0)
+        
+        total_income_text = f"Общий доход: {total_income:,.2f} руб.".replace(',', ' ')
+
+        # 2. Логика для "Бирюзового фонда"
+        show_turquoise_block = False
+        category_name = ""
+        if category_id and category_options:
+            # Находим полное имя категории
+            for option in category_options:
+                if option['value'] == category_id:
+                    category_name = option['label']
+                    break
+        
+        if "АстроФест" in category_name:
+            show_turquoise_block = True
+
+        if not show_turquoise_block:
+            return total_income_text, {'display': 'none'}, default_title, "", "", ""
+
+        # Формируем заголовок с датой
+        title = default_title
+        if max_date_str:
+            # Конвертируем время в московское
+            utc_date = datetime.fromisoformat(max_date_str).replace(tzinfo=pytz.utc)
+            moscow_tz = pytz.timezone('Europe/Moscow')
+            moscow_date = utc_date.astimezone(moscow_tz)
+            title += f" на {moscow_date.strftime('%d.%m.%Y %H:%M')}"
+
+        # Расчеты для фонда
+        fund_income = total_income * 0.20
+        fund_after_tax = fund_income * 0.94  # Вычет 6%
+        
+        employee_income = 0
+        if employee_count and employee_count > 0:
+            employee_income = fund_after_tax / employee_count
+
+        # Стили
+        text_style = {'fontWeight': 'bold', 'color': '#008080'} # Темно-бирюзовый
+        number_style = {'fontSize': '1.2em', 'color': 'purple', 'fontWeight': 'bold', 'marginLeft': '5px'}
+
+        # Формирование стилизованных выводов
+        fund_income_text = html.Div([
+            html.Span("Бирюзовый фонд (доход): ", style=text_style),
+            html.Span(f"{fund_income:,.2f} руб.".replace(',', ' '), style=number_style)
+        ])
+        fund_after_tax_text = html.Div([
+            html.Span("Бирюзовый фонд (с вычетом 6%): ", style=text_style),
+            html.Span(f"{fund_after_tax:,.2f} руб.".replace(',', ' '), style=number_style)
+        ])
+        employee_income_text = html.Div([
+            html.Span("Доход сотрудника: ", style=text_style),
+            html.Span(f"{employee_income:,.2f} руб.".replace(',', ' '), style=number_style)
+        ])
+        
+        style = {'display': 'block', 'marginTop': '30px', 'padding': '15px', 'border': '2px solid #40E0D0', 'borderRadius': '5px'}
+
+        return total_income_text, style, title, fund_income_text, fund_after_tax_text, employee_income_text
+
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""
