@@ -22,7 +22,7 @@ layout = html.Div([
                     max_date_allowed=date.today(),
                     initial_visible_month=date.today(),
                     date=date.today() - timedelta(days=30),
-                    display_format='YYYY-MM-DD'
+                    display_format='DD.MM.YYYY'
                 ),
                 dcc.DatePickerSingle(
                     id='end-date-picker-general',
@@ -30,7 +30,7 @@ layout = html.Div([
                     max_date_allowed=date.today(),
                     initial_visible_month=date.today(),
                     date=date.today(),
-                    display_format='YYYY-MM-DD'
+                    display_format='DD.MM.YYYY'
                 ),
                 html.Div([
                     html.Label("Выберите категорию:"),
@@ -71,7 +71,7 @@ layout = html.Div([
                         max_date_allowed=date.today(),
                         initial_visible_month=date.today(),
                         date=date.today() - timedelta(days=30),
-                        display_format='YYYY-MM-DD'
+                        display_format='DD.MM.YYYY'
                     ),
                     dcc.DatePickerSingle(
                         id='end-date-picker-product',
@@ -79,7 +79,7 @@ layout = html.Div([
                         max_date_allowed=date.today(),
                         initial_visible_month=date.today(),
                         date=date.today(),
-                        display_format='YYYY-MM-DD'
+                        display_format='DD.MM.YYYY'
                     ),
                 ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
             ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'flex-start', 'flexWrap': 'wrap', 'marginTop': '20px', 'marginBottom': '20px'}),
@@ -160,7 +160,7 @@ layout = html.Div([
                         max_date_allowed=date.today(),
                         start_date=date.today() - timedelta(days=30),
                         end_date=date.today(),
-                        display_format='YYYY-MM-DD'
+                        display_format='DD.MM.YYYY'
                     ),
                 ], style={'display': 'inline-block', 'marginLeft': '20px'}),
             ], style={'marginTop': '20px', 'marginBottom': '20px'}),
@@ -196,7 +196,7 @@ layout = html.Div([
                         max_date_allowed=date.today(),
                         start_date=date.today() - timedelta(days=30),
                         end_date=date.today(),
-                        display_format='YYYY-MM-DD'
+                        display_format='DD.MM.YYYY'
                     ),
                     dcc.Checklist(
                         id='category-revenue-date-checklist',
@@ -265,7 +265,7 @@ layout = html.Div([
                         max_date_allowed=date.today(),
                         start_date=date.today() - timedelta(days=30),
                         end_date=date.today(),
-                        display_format='YYYY-MM-DD'
+                        display_format='DD.MM.YYYY'
                     ),
                 ], style={'display': 'inline-block', 'marginRight': '20px'}),
                 html.Div([
@@ -324,7 +324,7 @@ layout = html.Div([
                         max_date_allowed=date.today(),
                         start_date=date.today() - timedelta(days=365),
                         end_date=date.today(),
-                        display_format='YYYY-MM-DD'
+                        display_format='DD.MM.YYYY'
                     ),
                 ], style={'display': 'inline-block', 'marginRight': '20px', 'verticalAlign': 'top'}),
                 html.Div([
@@ -365,6 +365,13 @@ layout = html.Div([
                     }
                 ],
             ),
+            html.Div(id='monthly-sales-summary', style={
+                'marginTop': '20px',
+                'padding': '10px',
+                'border': '1px solid #ddd',
+                'borderRadius': '5px',
+                'backgroundColor': '#f9f9f9'
+            }),
 
             html.Hr(style={'marginTop': '30px', 'marginBottom': '30px'}),
 
@@ -389,6 +396,13 @@ layout = html.Div([
                     }
                 ],
             ),
+            html.Div(id='monthly-sales-by-product-summary', style={
+                'marginTop': '20px',
+                'padding': '10px',
+                'border': '1px solid #ddd',
+                'borderRadius': '5px',
+                'backgroundColor': '#f9f9f9'
+            }),
 
             html.Hr(style={'marginTop': '30px', 'marginBottom': '30px'}),
 
@@ -412,7 +426,14 @@ layout = html.Div([
                         'backgroundColor': 'rgb(248, 248, 248)'
                     }
                 ],
-            )
+            ),
+            html.Div(id='monthly-sales-by-category-summary', style={
+                'marginTop': '20px',
+                'padding': '10px',
+                'border': '1px solid #ddd',
+                'borderRadius': '5px',
+                'backgroundColor': '#f9f9f9'
+            })
         ]),
     ]),
     dcc.Store(id='max-date-store') # Хранилище для максимальной даты

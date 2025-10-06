@@ -128,17 +128,10 @@ def register_callbacks(app):
             df['cumulative_percentage'] = 'N/A'
             df['daily_percentage'] = 'N/A'
 
-        # Расчет дневной конверсии
-        df['daily_conversion'] = '0.00%'
-        mask = df['total_orders'] > 0
-        df.loc[mask, 'daily_conversion'] = ((df.loc[mask, 'paid_orders'] / df.loc[mask, 'total_orders']) * 100).round(2).astype(str) + '%'
-
         # Подготовка данных для таблицы
         table_columns = [
             {"name": "Дата", "id": "date"},
-            {"name": "Заявки", "id": "total_orders"},
             {"name": "Оплаты", "id": "paid_orders"},
-            {"name": "Конверсия", "id": "daily_conversion"},
             {"name": "Дневной доход", "id": "daily_sales"},
             {"name": "Накопительный доход", "id": "cumulative_sales"},
             {"name": "% от прихода (накоп.)", "id": "cumulative_percentage"},
@@ -204,14 +197,7 @@ def register_callbacks(app):
             total_income = summary_df['total_income'].sum()
             overall_avg_check = (total_income / paid_orders) if paid_orders > 0 else 0
 
-            # Расчет конверсии
-            conversion_rate = (paid_orders / total_orders * 100) if total_orders > 0 else 0
-            conversion_text = [
-                html.B("Конверсия заявок в оплату: "),
-                f"Всего заявок: {total_orders}, ",
-                f"Всего оплаченных заявок: {paid_orders}, ",
-                f"Конверсия: {conversion_rate:.2f}%"
-            ]
+            conversion_text = []
 
             # Форматирование
             summary_df['total_income'] = summary_df['total_income'].round(2)
@@ -230,7 +216,6 @@ def register_callbacks(app):
 
             summary_table_columns = [
                 {"name": "Продукт", "id": "product"},
-                {"name": "Заявки", "id": "total_orders"},
                 {"name": "Оплаты", "id": "paid_orders"},
                 {"name": "Доход", "id": "total_income"},
                 {"name": "Средний чек", "id": "average_check"},
@@ -261,37 +246,23 @@ def register_callbacks(app):
         # Подготовка колонок для таблицы
         table_columns = [
             {"name": "Продукт", "id": "product"},
-            {"name": "Заявки", "id": "total_orders"},
             {"name": "Оплаты", "id": "paid_orders"},
-            {"name": "Конверсия", "id": "conversion"},
             {"name": "Доход", "id": "total_income"},
         ]
 
         if df.empty:
             return [], table_columns
 
-        # Расчет конверсии для каждой строки
-        df['conversion'] = '0.00%'
-        mask = df['total_orders'] > 0
-        df.loc[mask, 'conversion'] = ((df.loc[mask, 'paid_orders'] / df.loc[mask, 'total_orders']) * 100).round(2).astype(str) + '%'
-        
         # Округление дохода
         df['total_income'] = df['total_income'].round(2)
 
         # Расчет итоговой строки
-        total_orders = df['total_orders'].sum()
         total_paid_orders = df['paid_orders'].sum()
         total_income = df['total_income'].sum()
-        
-        # Расчет общей конверсии
-        overall_conversion_rate = (total_paid_orders / total_orders * 100) if total_orders > 0 else 0
-        overall_conversion_str = f"{overall_conversion_rate:.2f}%"
 
         total_row = {
             'product': 'Итого',
-            'total_orders': total_orders,
             'paid_orders': total_paid_orders,
-            'conversion': overall_conversion_str,
             'total_income': round(total_income, 2)
         }
         
@@ -574,12 +545,15 @@ def register_callbacks(app):
         [Output('monthly-sales-graph', 'figure'),
          Output('monthly-sales-table', 'data'),
          Output('monthly-sales-table', 'columns'),
+         Output('monthly-sales-summary', 'children'),
          Output('monthly-sales-by-product-graph', 'figure'),
          Output('monthly-sales-by-product-table', 'data'),
          Output('monthly-sales-by-product-table', 'columns'),
+         Output('monthly-sales-by-product-summary', 'children'),
          Output('monthly-sales-by-category-graph', 'figure'),
          Output('monthly-sales-by-category-table', 'data'),
-         Output('monthly-sales-by-category-table', 'columns')],
+         Output('monthly-sales-by-category-table', 'columns'),
+         Output('monthly-sales-by-category-summary', 'children')],
         [Input('monthly-sales-date-picker', 'start_date'),
          Input('monthly-sales-date-picker', 'end_date'),
          Input('monthly-sales-category-dropdown', 'value'),
@@ -598,30 +572,63 @@ def register_callbacks(app):
         df_by_category = get_monthly_sales_by_category(start_date, end_date_corrected, category_ids, product_names)
 
         empty_fig = _create_empty_figure("Нет данных за выбранный период")
+        empty_summary = []
         if df_monthly.empty:
-            return empty_fig, [], [], empty_fig, [], [], empty_fig, [], []
+            return empty_fig, [], [], empty_summary, empty_fig, [], [], empty_summary, empty_fig, [], [], empty_summary
 
-        # --- Первый график и таблица (общие) ---
+        # --- Общая функция для создания сводки ---
+        def create_summary(df, total_sales_col='total_sales', total_orders_col='total_orders', paid_orders_col='paid_orders', is_monthly=False):
+            total_sales = df[total_sales_col].sum()
+            paid_orders = df[paid_orders_col].sum()
+            average_check = (total_sales / paid_orders) if paid_orders > 0 else 0
+            
+            summary_items = [
+                html.B("Сводка: "),
+                f"Итоговый доход: {total_sales:,.2f} руб., ".replace(",", " "),
+                f"Всего оплат: {paid_orders}, ",
+                f"Средний чек: {average_check:,.2f} руб.".replace(",", " ")
+            ]
+
+            if is_monthly and not df.empty:
+                num_months = df['month'].nunique()
+                average_monthly_income = (total_sales / num_months) if num_months > 0 else 0
+                summary_items.append(f"Средний доход в месяц: {average_monthly_income:,.2f} руб.".replace(",", " "))
+
+            return summary_items
+
+        # --- Первый график, таблица и сводка (общие) ---
         total_monthly_sales = df_monthly['total_sales'].sum()
+        total_monthly_orders = df_monthly['total_orders'].sum()
+        total_monthly_paid_orders = df_monthly['paid_orders'].sum()
+        
         fig_monthly = px.bar(
             df_monthly, x='month', y='total_sales', title='Динамика продаж по месяцам',
             labels={'month': 'Месяц', 'total_sales': 'Сумма продаж'}, text='total_sales'
         )
         fig_monthly.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
         fig_monthly.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', yaxis_title="Сумма продаж")
+        
+        summary_monthly = create_summary(df_monthly, 'total_sales', 'total_orders', 'paid_orders', is_monthly=True)
         df_monthly['total_sales'] = df_monthly['total_sales'].apply(lambda x: f"{x:,.2f}".replace(",", " "))
         table_monthly_data = df_monthly.to_dict('records')
         table_monthly_data.append({
             'month': 'Итого',
-            'total_sales': f"{total_monthly_sales:,.2f}".replace(",", " ")
+            'total_sales': f"{total_monthly_sales:,.2f}".replace(",", " "),
+            'paid_orders': total_monthly_paid_orders
         })
-        table_monthly_columns = [{"name": "Месяц", "id": "month"}, {"name": "Сумма продаж", "id": "total_sales"}]
+        table_monthly_columns = [
+            {"name": "Месяц", "id": "month"}, {"name": "Сумма продаж", "id": "total_sales"},
+            {"name": "Оплаты", "id": "paid_orders"}
+        ]
 
-        # --- Второй график и таблица (по продуктам) ---
+        # --- Второй график, таблица и сводка (по продуктам) ---
         if df_by_product.empty:
-            fig_by_product, table_by_product_data, table_by_product_columns = empty_fig, [], []
+            fig_by_product, table_by_product_data, table_by_product_columns, summary_by_product = empty_fig, [], [], empty_summary
         else:
             total_product_sales = df_by_product['total_sales'].sum()
+            total_product_orders = df_by_product['total_orders'].sum()
+            total_product_paid_orders = df_by_product['paid_orders'].sum()
+
             fig_by_product = px.bar(
                 df_by_product, x='month', y='total_sales', color='product', title='Динамика продаж по продуктам',
                 labels={'month': 'Месяц', 'total_sales': 'Сумма продаж', 'product': 'Продукт'},
@@ -629,23 +636,30 @@ def register_callbacks(app):
             )
             fig_by_product.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
             fig_by_product.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', yaxis_title="Сумма продаж")
+            
+            summary_by_product = create_summary(df_by_product, 'total_sales', 'total_orders', 'paid_orders', is_monthly=True)
             df_by_product['total_sales'] = df_by_product['total_sales'].apply(lambda x: f"{x:,.2f}".replace(",", " "))
             table_by_product_data = df_by_product.to_dict('records')
             table_by_product_data.append({
                 'month': 'Итого',
                 'product': '',
-                'total_sales': f"{total_product_sales:,.2f}".replace(",", " ")
+                'total_sales': f"{total_product_sales:,.2f}".replace(",", " "),
+                'paid_orders': total_product_paid_orders
             })
             table_by_product_columns = [
                 {"name": "Месяц", "id": "month"}, {"name": "Продукт", "id": "product"},
-                {"name": "Сумма продаж", "id": "total_sales"}
+                {"name": "Сумма продаж", "id": "total_sales"},
+                {"name": "Оплаты", "id": "paid_orders"}
             ]
 
-        # --- Третий график и таблица (по категориям) ---
+        # --- Третий график, таблица и сводка (по категориям) ---
         if df_by_category.empty:
-            fig_by_category, table_by_category_data, table_by_category_columns = empty_fig, [], []
+            fig_by_category, table_by_category_data, table_by_category_columns, summary_by_category = empty_fig, [], [], empty_summary
         else:
             total_category_sales = df_by_category['total_sales'].sum()
+            total_category_orders = df_by_category['total_orders'].sum()
+            total_category_paid_orders = df_by_category['paid_orders'].sum()
+
             fig_by_category = px.bar(
                 df_by_category, x='month', y='total_sales', color='category', title='Динамика продаж по категориям',
                 labels={'month': 'Месяц', 'total_sales': 'Сумма продаж', 'category': 'Категория'},
@@ -653,21 +667,25 @@ def register_callbacks(app):
             )
             fig_by_category.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
             fig_by_category.update_layout(uniformtext_minsize=8, uniformtext_mode='hide', yaxis_title="Сумма продаж")
+            
+            summary_by_category = create_summary(df_by_category, 'total_sales', 'total_orders', 'paid_orders', is_monthly=True)
             df_by_category['total_sales'] = df_by_category['total_sales'].apply(lambda x: f"{x:,.2f}".replace(",", " "))
             table_by_category_data = df_by_category.to_dict('records')
             table_by_category_data.append({
                 'month': 'Итого',
                 'category': '',
-                'total_sales': f"{total_category_sales:,.2f}".replace(",", " ")
+                'total_sales': f"{total_category_sales:,.2f}".replace(",", " "),
+                'paid_orders': total_category_paid_orders
             })
             table_by_category_columns = [
                 {"name": "Месяц", "id": "month"}, {"name": "Категория", "id": "category"},
-                {"name": "Сумма продаж", "id": "total_sales"}
+                {"name": "Сумма продаж", "id": "total_sales"},
+                {"name": "Оплаты", "id": "paid_orders"}
             ]
 
-        return (fig_monthly, table_monthly_data, table_monthly_columns,
-                fig_by_product, table_by_product_data, table_by_product_columns,
-                fig_by_category, table_by_category_data, table_by_category_columns)
+        return (fig_monthly, table_monthly_data, table_monthly_columns, summary_monthly,
+                fig_by_product, table_by_product_data, table_by_product_columns, summary_by_product,
+                fig_by_category, table_by_category_data, table_by_category_columns, summary_by_category)
 
 def _create_empty_figure(text):
     """Создает пустую фигуру с текстовым сообщением."""

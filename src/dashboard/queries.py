@@ -40,7 +40,9 @@ def get_monthly_sales_by_category(start_date, end_date, category_ids=None, produ
         query = db.query(
             func.strftime('%Y-%m', Order.creation_date).label('month'),
             ProductCategory.name.label('category'),
-            func.sum(Order.income).label('total_sales')
+            func.sum(Order.income).label('total_sales'),
+            func.count(Order.id).label('total_orders'),
+            func.sum(case((Order.income > 0, 1), else_=0)).label('paid_orders')
         ).join(Product, Order.content == Product.name)\
          .join(product_category_association)\
          .join(ProductCategory)\
@@ -72,7 +74,9 @@ def get_monthly_sales_by_product(start_date, end_date, category_ids=None, produc
         query = db.query(
             func.strftime('%Y-%m', Order.creation_date).label('month'),
             Order.content.label('product'),
-            func.sum(Order.income).label('total_sales')
+            func.sum(Order.income).label('total_sales'),
+            func.count(Order.id).label('total_orders'),
+            func.sum(case((Order.income > 0, 1), else_=0)).label('paid_orders')
         ).filter(Order.income > 0)
 
         if start_date and end_date:
@@ -102,7 +106,9 @@ def get_monthly_sales(start_date, end_date, category_ids=None, product_names=Non
     try:
         query = db.query(
             func.strftime('%Y-%m', Order.creation_date).label('month'),
-            func.sum(Order.income).label('total_sales')
+            func.sum(Order.income).label('total_sales'),
+            func.count(Order.id).label('total_orders'),
+            func.sum(case((Order.income > 0, 1), else_=0)).label('paid_orders')
         ).filter(Order.income > 0)
 
         if start_date and end_date:
