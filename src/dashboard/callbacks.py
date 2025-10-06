@@ -56,12 +56,13 @@ def register_callbacks(app):
          Output('category-dropdown-period', 'options'),
          Output('exclude-category-dropdown', 'options'),
          Output('include-category-dropdown', 'options'),
-         Output('monthly-sales-category-dropdown', 'options')],
+         Output('monthly-sales-category-dropdown', 'options'),
+         Output('monthly-sales-exclude-category-dropdown', 'options')],
         [Input('tabs-main', 'value')] # Триггер при загрузке любой вкладки
     )
     def update_category_dropdowns(tab):
         categories = get_categories()
-        return [categories, categories, categories, categories, categories, categories]
+        return [categories, categories, categories, categories, categories, categories, categories]
 
     # Callback для обновления списка продуктов в зависимости от выбранной категории
     @app.callback(
@@ -529,16 +530,24 @@ def register_callbacks(app):
 
     # Callback для обновления списка продуктов на вкладке "Помесячные продажи"
     @app.callback(
-        Output('monthly-sales-product-dropdown', 'options'),
-        [Input('monthly-sales-category-dropdown', 'value')]
+        [Output('monthly-sales-product-dropdown', 'options'),
+         Output('monthly-sales-exclude-product-dropdown', 'options')],
+        [Input('monthly-sales-category-dropdown', 'value'),
+         Input('monthly-sales-exclude-category-dropdown', 'value')]
     )
-    def update_monthly_sales_product_dropdown(category_ids):
-        if not category_ids:
-            # Если категории не выбраны, можно вернуть пустой список или все продукты
+    def update_monthly_sales_product_dropdowns(include_cat_ids, exclude_cat_ids):
+        # Используем set для избежания дублирования, если одна и та же категория в обоих списках
+        all_relevant_cat_ids = set(include_cat_ids if include_cat_ids else []) | set(exclude_cat_ids if exclude_cat_ids else [])
+        
+        if not all_relevant_cat_ids:
             products = get_unique_products()
         else:
-            products = get_unique_products(category_id=category_ids)
-        return [{'label': i, 'value': i} for i in products]
+            products = get_unique_products(category_id=list(all_relevant_cat_ids))
+        
+        product_options = [{'label': i, 'value': i} for i in products]
+        
+        # Возвращаем одинаковые опции для обоих дропдаунов
+        return [product_options, product_options]
 
     # Callback для обновления вкладки "Помесячные продажи"
     @app.callback(
@@ -557,9 +566,11 @@ def register_callbacks(app):
         [Input('monthly-sales-date-picker', 'start_date'),
          Input('monthly-sales-date-picker', 'end_date'),
          Input('monthly-sales-category-dropdown', 'value'),
-         Input('monthly-sales-product-dropdown', 'value')]
+         Input('monthly-sales-product-dropdown', 'value'),
+         Input('monthly-sales-exclude-category-dropdown', 'value'),
+         Input('monthly-sales-exclude-product-dropdown', 'value')]
     )
-    def update_monthly_sales_tab(start_date, end_date, category_ids, product_names):
+    def update_monthly_sales_tab(start_date, end_date, category_ids, product_names, exclude_category_ids, exclude_product_names):
         if not start_date or not end_date:
             raise PreventUpdate
 
@@ -567,9 +578,9 @@ def register_callbacks(app):
         end_date_corrected = end_date_dt.strftime('%Y-%m-%d')
 
         # Получение данных
-        df_monthly = get_monthly_sales(start_date, end_date_corrected, category_ids, product_names)
-        df_by_product = get_monthly_sales_by_product(start_date, end_date_corrected, category_ids, product_names)
-        df_by_category = get_monthly_sales_by_category(start_date, end_date_corrected, category_ids, product_names)
+        df_monthly = get_monthly_sales(start_date, end_date_corrected, category_ids, product_names, exclude_category_ids, exclude_product_names)
+        df_by_product = get_monthly_sales_by_product(start_date, end_date_corrected, category_ids, product_names, exclude_category_ids, exclude_product_names)
+        df_by_category = get_monthly_sales_by_category(start_date, end_date_corrected, category_ids, product_names, exclude_category_ids, exclude_product_names)
 
         empty_fig = _create_empty_figure("Нет данных за выбранный период")
         empty_summary = []

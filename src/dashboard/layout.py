@@ -343,7 +343,26 @@ layout = html.Div([
                         placeholder="Все продукты"
                     ),
                 ], style={'display': 'inline-block', 'width': '30%', 'verticalAlign': 'top'}),
-            ], style={'marginTop': '20px', 'marginBottom': '20px'}),
+            ], style={'marginTop': '20px', 'marginBottom': '20px', 'display': 'flex', 'flexWrap': 'wrap'}),
+
+            html.Div([
+                 html.Div([
+                    html.Label("Исключить категорию:"),
+                    dcc.Dropdown(
+                        id='monthly-sales-exclude-category-dropdown',
+                        multi=True,
+                        placeholder="Выберите для исключения"
+                    ),
+                ], style={'display': 'inline-block', 'width': '30%', 'marginRight': '2%', 'verticalAlign': 'top'}),
+                html.Div([
+                    html.Label("Исключить продукт(ы):"),
+                    dcc.Dropdown(
+                        id='monthly-sales-exclude-product-dropdown',
+                        multi=True,
+                        placeholder="Выберите для исключения"
+                    ),
+                ], style={'display': 'inline-block', 'width': '30%', 'verticalAlign': 'top'}),
+            ], style={'marginTop': '10px', 'marginBottom': '20px', 'display': 'flex', 'flexWrap': 'wrap'}),
             
             dcc.Graph(id='monthly-sales-graph'),
             

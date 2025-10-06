@@ -31,7 +31,7 @@ def get_sales_by_day(start_date, end_date, category_id=None):
     finally:
         db.close()
 
-def get_monthly_sales_by_category(start_date, end_date, category_ids=None, product_names=None):
+def get_monthly_sales_by_category(start_date, end_date, category_ids=None, product_names=None, exclude_category_ids=None, exclude_product_names=None):
     """
     Возвращает суммарный доход по месяцам в разрезе категорий за указанный период.
     """
@@ -56,6 +56,12 @@ def get_monthly_sales_by_category(start_date, end_date, category_ids=None, produ
         
         if product_names:
             query = query.filter(Order.content.in_(product_names))
+        
+        if exclude_category_ids:
+            query = query.filter(ProductCategory.id.notin_(exclude_category_ids))
+
+        if exclude_product_names:
+            query = query.filter(Order.content.notin_(exclude_product_names))
 
         query = query.group_by('month', 'category').order_by('month', 'category')
         
@@ -64,7 +70,7 @@ def get_monthly_sales_by_category(start_date, end_date, category_ids=None, produ
     finally:
         db.close()
 
-def get_monthly_sales_by_product(start_date, end_date, category_ids=None, product_names=None):
+def get_monthly_sales_by_product(start_date, end_date, category_ids=None, product_names=None, exclude_category_ids=None, exclude_product_names=None):
     """
     Возвращает суммарный доход по месяцам в разрезе продуктов за указанный период,
     опционально фильтруя по категориям и продуктам.
@@ -82,13 +88,25 @@ def get_monthly_sales_by_product(start_date, end_date, category_ids=None, produc
         if start_date and end_date:
             query = query.filter(Order.creation_date.between(start_date, end_date))
 
+        # Флаг, чтобы избежать повторного join
+        joined_product = False
         if category_ids:
             query = query.join(Product, Order.content == Product.name)\
                          .join(product_category_association)\
                          .filter(product_category_association.c.category_id.in_(category_ids))
+            joined_product = True
         
         if product_names:
             query = query.filter(Order.content.in_(product_names))
+
+        if exclude_category_ids:
+            if not joined_product:
+                query = query.join(Product, Order.content == Product.name)\
+                             .join(product_category_association)
+            query = query.filter(product_category_association.c.category_id.notin_(exclude_category_ids))
+
+        if exclude_product_names:
+            query = query.filter(Order.content.notin_(exclude_product_names))
 
         query = query.group_by('month', 'product').order_by('month', 'product')
         
@@ -97,7 +115,7 @@ def get_monthly_sales_by_product(start_date, end_date, category_ids=None, produc
     finally:
         db.close()
 
-def get_monthly_sales(start_date, end_date, category_ids=None, product_names=None):
+def get_monthly_sales(start_date, end_date, category_ids=None, product_names=None, exclude_category_ids=None, exclude_product_names=None):
     """
     Возвращает суммарный доход по месяцам за указанный период,
     опционально фильтруя по категориям и продуктам.
@@ -114,13 +132,25 @@ def get_monthly_sales(start_date, end_date, category_ids=None, product_names=Non
         if start_date and end_date:
             query = query.filter(Order.creation_date.between(start_date, end_date))
 
+        # Флаг, чтобы избежать повторного join
+        joined_product = False
         if category_ids:
             query = query.join(Product, Order.content == Product.name)\
                          .join(product_category_association)\
                          .filter(product_category_association.c.category_id.in_(category_ids))
+            joined_product = True
         
         if product_names:
             query = query.filter(Order.content.in_(product_names))
+
+        if exclude_category_ids:
+            if not joined_product:
+                query = query.join(Product, Order.content == Product.name)\
+                             .join(product_category_association)
+            query = query.filter(product_category_association.c.category_id.notin_(exclude_category_ids))
+
+        if exclude_product_names:
+            query = query.filter(Order.content.notin_(exclude_product_names))
 
         query = query.group_by('month').order_by('month')
         
