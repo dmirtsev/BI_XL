@@ -1,4 +1,5 @@
 import io
+import zipfile
 import pytz
 from datetime import datetime
 import pandas as pd
@@ -35,27 +36,31 @@ app.register_blueprint(partner_analytics_api, url_prefix='/api/partner-analytics
 @app.route('/api/export/all')
 def export_all_tables():
     """
-    Экспортирует все таблицы базы данных в один Excel-файл (по листу на таблицу).
+    Экспортирует все таблицы базы данных в набор отдельных XLS-файлов (по файлу на таблицу) внутри zip-архива.
     """
     inspector = inspect(engine)
     table_names = inspector.get_table_names()
 
-    output = io.BytesIO()
-    with engine.connect() as connection:
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+        with engine.connect() as connection:
             for table in table_names:
                 df = pd.read_sql_table(table, connection)
+                excel_buffer = io.BytesIO()
                 # Ограничиваем имя листа 31 символом (ограничение Excel)
-                sheet_name = table[:31]
-                df.to_excel(writer, sheet_name=sheet_name, index=False)
+                with pd.ExcelWriter(excel_buffer, engine="xlwt") as writer:
+                    df.to_excel(writer, sheet_name=table[:31], index=False)
+                excel_buffer.seek(0)
+                zf.writestr(f"{table}_{timestamp}.xls", excel_buffer.read())
 
-    output.seek(0)
-    filename = f"analytics_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    zip_buffer.seek(0)
+    filename = f"analytics_exports_{timestamp}.zip"
     return send_file(
-        output,
+        zip_buffer,
         download_name=filename,
         as_attachment=True,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mimetype="application/zip",
     )
 
 
@@ -148,7 +153,7 @@ def index():
             <!-- Модуль Выгрузки -->
             <div class="module">
                 <h2>Выгрузка данных</h2>
-                <p>Экспорт всех таблиц базы в один Excel-файл.</p>
+                <p>Экспорт всех таблиц базы в отдельные XLS-файлы (zip-архив).</p>
                 <a href="/api/export/all"><button>ВЫГРУЗКА</button></a>
             </div>
 
