@@ -1,13 +1,15 @@
+import io
 import pytz
 from datetime import datetime
-from flask import Flask, jsonify, render_template, render_template_string
-from sqlalchemy import func
+import pandas as pd
+from flask import Flask, jsonify, render_template, render_template_string, send_file
+from sqlalchemy import func, inspect
 from src.auth.api import auth_api
 from src.analytics.api import analytics_api
 from src.contacts.api import contacts_api
 from src.product_grouping.api import product_grouping_api
 from src.partner_analytics.api import partner_analytics_api
-from src.analytics.models import init_db, SessionLocal, Order
+from src.analytics.models import init_db, SessionLocal, Order, engine
 from src.contacts.models import Contact
 from src.dashboard.app import create_dash_app
 
@@ -29,6 +31,32 @@ app.register_blueprint(analytics_api, url_prefix='/api/analytics')
 app.register_blueprint(contacts_api, url_prefix='/api/contacts')
 app.register_blueprint(product_grouping_api, url_prefix='/api/product-grouping')
 app.register_blueprint(partner_analytics_api, url_prefix='/api/partner-analytics')
+
+@app.route('/api/export/all')
+def export_all_tables():
+    """
+    Экспортирует все таблицы базы данных в один Excel-файл (по листу на таблицу).
+    """
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+
+    output = io.BytesIO()
+    with engine.connect() as connection:
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            for table in table_names:
+                df = pd.read_sql_table(table, connection)
+                # Ограничиваем имя листа 31 символом (ограничение Excel)
+                sheet_name = table[:31]
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    output.seek(0)
+    filename = f"analytics_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return send_file(
+        output,
+        download_name=filename,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 # --- Основной интерфейс ---
@@ -115,6 +143,13 @@ def index():
                 <h2>Модуль: Аналитический Дашборд</h2>
                 <p>Перейдите на страницу с интерактивными графиками и отчетами.</p>
                 <a href="/dashboard/" target="_blank"><button>Открыть дашборд</button></a>
+            </div>
+
+            <!-- Модуль Выгрузки -->
+            <div class="module">
+                <h2>Выгрузка данных</h2>
+                <p>Экспорт всех таблиц базы в один Excel-файл.</p>
+                <a href="/api/export/all"><button>ВЫГРУЗКА</button></a>
             </div>
 
             <!-- Модуль Группировки Продуктов -->
