@@ -1,8 +1,9 @@
 import io
 import zipfile
 import pytz
-from datetime import datetime
+from datetime import datetime, date
 import pandas as pd
+import xlwt
 from flask import Flask, jsonify, render_template, render_template_string, send_file
 from sqlalchemy import func, inspect
 from src.auth.api import auth_api
@@ -48,9 +49,25 @@ def export_all_tables():
             for table in table_names:
                 df = pd.read_sql_table(table, connection)
                 excel_buffer = io.BytesIO()
-                # Ограничиваем имя листа 31 символом (ограничение Excel)
-                with pd.ExcelWriter(excel_buffer, engine="xlwt") as writer:
-                    df.to_excel(writer, sheet_name=table[:31], index=False)
+                workbook = xlwt.Workbook()
+                sheet = workbook.add_sheet(table[:31])  # ограничение Excel на длину имени листа
+
+                # Заголовок
+                for col_idx, col_name in enumerate(df.columns):
+                    sheet.write(0, col_idx, col_name)
+
+                # Данные
+                for row_idx, row in enumerate(df.itertuples(index=False), start=1):
+                    for col_idx, value in enumerate(row):
+                        if pd.isna(value):
+                            cell_value = ""
+                        elif isinstance(value, (datetime, date)):
+                            cell_value = value.strftime("%Y-%m-%d %H:%M:%S")
+                        else:
+                            cell_value = value
+                        sheet.write(row_idx, col_idx, cell_value)
+
+                workbook.save(excel_buffer)
                 excel_buffer.seek(0)
                 zf.writestr(f"{table}_{timestamp}.xls", excel_buffer.read())
 
